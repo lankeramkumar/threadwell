@@ -1,0 +1,55 @@
+// Typed wrappers around Tauri commands. Components call these, never `invoke` directly.
+import { invoke } from '@tauri-apps/api/core';
+import type {
+  BackupInfo,
+  JsonNode,
+  NewTask,
+  Page,
+  PageSummary,
+  Project,
+  SearchHit,
+  Settings,
+  Task,
+  TaskPatch,
+  WorkspaceInfo,
+} from './types';
+
+export const api = {
+  appStatus: () => invoke<{ workspace: WorkspaceInfo | null }>('app_status'),
+  createWorkspace: (path: string, name: string, withSample: boolean) =>
+    invoke<WorkspaceInfo>('create_workspace', { path, name, withSample }),
+  openWorkspace: (path: string) => invoke<WorkspaceInfo>('open_workspace', { path }),
+
+  listPages: () => invoke<PageSummary[]>('list_pages'),
+  listTrash: () => invoke<PageSummary[]>('list_trash'),
+  getPage: (id: string) => invoke<Page>('get_page', { id }),
+  createPage: (title: string, parentId: string | null) => invoke<Page>('create_page', { title, parentId }),
+  savePage: (id: string, title: string, body: JsonNode, expectedRevision: number) =>
+    invoke<Page>('save_page', { id, title, body, expectedRevision }),
+  movePage: (id: string, parentId: string | null) => invoke<void>('move_page', { id, parentId }),
+  setPageFavorite: (id: string, favorite: boolean) => invoke<void>('set_page_favorite', { id, favorite }),
+  trashPage: (id: string) => invoke<number>('trash_page', { id }),
+  restorePage: (id: string) => invoke<void>('restore_page', { id }),
+  backlinks: (id: string) => invoke<PageSummary[]>('backlinks', { id }),
+
+  listProjects: () => invoke<Project[]>('list_projects'),
+  createProject: (name: string) => invoke<Project>('create_project', { name }),
+  listTasks: (projectId: string | null) => invoke<Task[]>('list_tasks', { projectId }),
+  createTask: (input: NewTask) => invoke<Task>('create_task', { input }),
+  updateTask: (id: string, patch: TaskPatch, expectedRevision: number) =>
+    invoke<Task>('update_task', { id, patch, expectedRevision }),
+  deleteTask: (id: string) => invoke<void>('delete_task', { id }),
+
+  search: (query: string) => invoke<SearchHit[]>('search_workspace', { query }),
+  rebuildSearchIndex: () => invoke<number>('rebuild_search_index'),
+
+  getSettings: () => invoke<Settings>('get_settings'),
+  setSetting: (key: string, value: string) => invoke<void>('set_setting', { key, value }),
+
+  exportPagesMarkdown: (destDir: string) => invoke<number>('export_all_markdown', { destDir }),
+  exportTasksCsv: (destFile: string) => invoke<number>('export_tasks_csv', { destFile }),
+  importMarkdown: (srcPath: string, parentId: string | null) => invoke<Page>('import_markdown', { srcPath, parentId }),
+  createBackup: (destDir: string) => invoke<BackupInfo>('create_backup', { destDir }),
+  restoreBackup: (backupDir: string, destDir: string) =>
+    invoke<WorkspaceInfo>('restore_backup', { backupDir, destDir }),
+};
