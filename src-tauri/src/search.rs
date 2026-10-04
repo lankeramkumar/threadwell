@@ -154,6 +154,59 @@ mod tests {
         assert_eq!(build_fts_query("a\" OR b"), Some("\"a\" \"OR\" \"b\"*".to_string()));
     }
 
+    /// Manual measurement, not run by default. Reports p50/p95 for search over a generated
+    /// 5,000-page workspace. Run with: cargo test --release -- --ignored --nocapture measures_search
+    #[test]
+    #[ignore = "manual measurement; see README Performance"]
+    fn measures_search_latency_on_5000_pages() {
+        use crate::{db, pages, util};
+        use std::time::Instant;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = db::open(&dir.path().join("bench.db")).unwrap();
+        db::migrate(&mut conn).unwrap();
+        let ws = util::new_id();
+        conn.execute(
+            "INSERT INTO workspace_meta (id, name, created_at) VALUES (?1, 'Bench', ?2)",
+            params![ws, util::now()],
+        )
+        .unwrap();
+
+        // Deterministic vocabulary so results are reproducible across runs.
+        let mut seed: u64 = 42;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 33) as usize
+        };
+        let vocab: Vec<String> = (0..3000).map(|i| format!("term{i}x{}", next() % 97)).collect();
+
+        let build = Instant::now();
+        for page_index in 0..5000 {
+            let title = format!("Page {page_index} {}", vocab[next() % vocab.len()]);
+            let page = pages::create(&conn, &ws, &title, None).unwrap();
+            let words: Vec<&str> = (0..180).map(|_| vocab[next() % vocab.len()].as_str()).collect();
+            let body = markdown::from_markdown(&format!("## Notes
+
+{}", words.join(" ")));
+            pages::update(&conn, &ws, &page.id, &title, &body, page.revision).unwrap();
+        }
+        let build_ms = build.elapsed().as_millis();
+
+        let mut timings: Vec<u128> = Vec::new();
+        for query_index in 0..200 {
+            let query = format!("{} {}", vocab[query_index * 13 % vocab.len()], vocab[query_index * 7 % vocab.len()]);
+            let start = Instant::now();
+            let hits = search(&conn, &ws, &query).unwrap();
+            timings.push(start.elapsed().as_micros());
+            assert!(hits.len() <= MAX_RESULTS);
+        }
+        timings.sort_unstable();
+        let p50 = timings[timings.len() / 2] as f64 / 1000.0;
+        let p95 = timings[timings.len() * 95 / 100] as f64 / 1000.0;
+        println!("bench: built 5000 pages in {build_ms} ms; search over 200 queries: p50 {p50:.2} ms, p95 {p95:.2} ms");
+        assert!(p95 < 300.0, "search p95 {p95:.2} ms exceeds the 300 ms target");
+    }
+
     #[test]
     fn like_pattern_escapes_wildcards() {
         assert_eq!(like_pattern("50%_off"), "%50\\%\\_off%");

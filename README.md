@@ -109,10 +109,10 @@ them as signed or verified by a publisher.
 
 Built on Windows 11 with `npm run tauri build` (release profile, LTO):
 
-| File | Size | Signed |
-| --- | --- | --- |
-| `src-tauri/target/release/bundle/msi/Threadwell_0.1.0_x64_en-US.msi` | 2.56 MiB | No |
-| `src-tauri/target/release/bundle/nsis/Threadwell_0.1.0_x64-setup.exe` | 1.92 MiB | No |
+| File                                                                  | Size     | Signed |
+| --------------------------------------------------------------------- | -------- | ------ |
+| `src-tauri/target/release/bundle/msi/Threadwell_0.1.0_x64_en-US.msi`  | 2.56 MiB | No     |
+| `src-tauri/target/release/bundle/nsis/Threadwell_0.1.0_x64-setup.exe` | 1.92 MiB | No     |
 
 The release executable starts, stays responsive, and shows a window titled "Threadwell". Installing the MSI or NSIS
 package on a clean machine has not been tested.
@@ -127,18 +127,22 @@ package on a clean machine has not been tested.
 
 ## Performance
 
-No measurements have been taken yet. The targets in `intent.md` section 12 are not yet verified. Known contributors to
-startup time: the frontend bundle is about 725 kB before gzip (Tiptap and ProseMirror dominate). Splitting the editor
-into a lazily loaded chunk is the first candidate if cold start misses its target.
+Measured so far (Windows 11, release build of the Rust backend, warm disk cache, one machine):
 
-Measurements to take before claiming any number: cold window time, search p95 on a 5,000-page generated workspace,
-autosave latency, idle memory, installer size. Record hardware, dataset size and whether caches were warm.
+| Target in `intent.md`                  | Measured                                                                                            | Notes                                                                                                                                                      |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Search p95 below 300 ms at 5,000 pages | **p50 1.50 ms, p95 2.75 ms** over 200 queries                                                       | Generated corpus: 5,000 pages of about 180 words each, deterministic vocabulary. Run with `cargo test --release -- --ignored --nocapture measures_search`. |
+| Installer size                         | MSI 2.56 MiB, NSIS 1.92 MiB                                                                         | Unsigned. Requires WebView2 (preinstalled on Windows 11).                                                                                                  |
+| Bulk page creation                     | Not a target, but slow: 5,000 pages took about 190 s to create and update through the service layer | Each create and update runs its own transaction and index write. Batching bulk imports is the next step if this matters.                                   |
+
+Not yet measured: cold window time, autosave latency in the UI, idle memory. The frontend bundle is about 725 kB before
+gzip (Tiptap and ProseMirror dominate). Lazy-loading the editor is the first candidate if cold start misses its target.
 
 ## Verification
 
 Verified on Windows 11 Pro (build 26200) with Node 24, Rust 1.99 stable, and MSVC toolchain:
 
-- Rust: 40 tests pass with `cargo test`, no compiler warnings.
+- Rust: 40 tests pass with `cargo test`, no compiler warnings. One further ignored test measures search latency.
 - Frontend: typecheck, lint, Vitest (14 tests) and `vite build` pass.
 - Release build: `npm run tauri build` completes and produces the MSI and NSIS bundles listed above.
 - Release executable: launched on the build machine; it stayed alive and responsive with the window titled "Threadwell".
