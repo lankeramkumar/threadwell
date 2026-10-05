@@ -13,6 +13,7 @@ import { api } from '../lib/api';
 import { breadcrumbs, formatTimestamp, isConflict, LINK_PREFIX, messageFor, subtreeIds } from '../lib/pure';
 import type { JsonNode, Page, PageSummary } from '../lib/types';
 import { SlashCommands } from './slashCommands';
+import { SelectionAssistant } from './SelectionAssistant';
 
 const AUTOSAVE_DELAY_MS = 800;
 const RETRY_DELAY_MS = 5000;
@@ -387,6 +388,8 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed }: Pr
           </select>
         </label>
       </div>
+
+      <SelectionAssistant editor={editor} pageId={page.id} onApplied={() => onChanged()} />
 
       <div className="status-line" role="status" aria-live="polite" data-state={save.kind}>
         {statusText}

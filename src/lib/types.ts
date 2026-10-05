@@ -109,3 +109,113 @@ export interface AppErrorPayload {
   code: 'validation' | 'not_found' | 'conflict' | 'no_workspace' | 'database' | 'io' | 'data';
   message: string;
 }
+
+// ---- assistant -------------------------------------------------------------
+
+export interface AiConfig {
+  endpoint: string;
+  model: string;
+  allowRemote: boolean;
+}
+
+export type AiReadiness = 'ready' | 'model_missing' | 'unreachable' | 'not_configured';
+
+export interface AiStatus {
+  config: AiConfig;
+  state: AiReadiness;
+}
+
+export interface Citation {
+  n: number;
+  kind: 'page' | 'task';
+  id: string;
+  title: string;
+}
+
+export interface StoredMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  citations: Citation[];
+  createdAt: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+export type ProposalKind = 'create_page' | 'edit_page' | 'task_changes';
+export type ProposalStatus = 'pending' | 'applied' | 'rejected' | 'stale' | 'undone';
+
+export interface Proposal {
+  id: string;
+  runId: string | null;
+  kind: ProposalKind;
+  targetPageId: string | null;
+  baseRevision: number | null;
+  status: ProposalStatus;
+  summary: string;
+  diffText: string;
+  appliedRevision: number | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface RunStarted {
+  runId: string;
+  conversationId: string | null;
+}
+
+export interface AiDoneEvent {
+  runId: string;
+  status: 'completed' | 'failed' | 'cancelled';
+  conversationId: string | null;
+  content: string | null;
+  citations: Citation[];
+  invalidCitations: number;
+  missingNumbers: string[];
+  errorCategory: string | null;
+  message: string | null;
+  proposals: number;
+}
+
+export interface AiToolEvent {
+  runId: string;
+  step: number;
+  tool: string;
+  ok: boolean;
+  summary: string;
+}
+
+export interface AiProposalEvent {
+  runId: string;
+  proposal: Proposal;
+}
+
+export interface AiDeltaEvent {
+  runId: string;
+  text: string;
+}
+
+export interface ToolTrace {
+  step: number;
+  tool: string;
+  ok: boolean;
+  summary: string;
+  errorCategory: string | null;
+}
+
+export interface RunSummary {
+  id: string;
+  kind: 'chat' | 'page_action';
+  status: 'running' | 'completed' | 'cancelled' | 'failed';
+  model: string;
+  steps: number;
+  errorCategory: string | null;
+  durationMs: number | null;
+  promptTokens: number | null;
+  outputTokens: number | null;
+  startedAt: string;
+}

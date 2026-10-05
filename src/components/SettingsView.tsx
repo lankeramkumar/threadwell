@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { api } from '../lib/api';
+import { AiSettings } from './AiSettings';
 import type { ThemeChoice } from '../lib/theme';
 import type { WorkspaceInfo } from '../lib/types';
 
@@ -180,13 +181,7 @@ export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored,
         </button>
       </section>
 
-      <section aria-labelledby="ai-heading" className="panel">
-        <h2 id="ai-heading">AI assistance</h2>
-        <p>
-          Not included in this build. AI features arrive in a later milestone and will use your own API key, stored in
-          the operating system credential store. Nothing is sent to a provider today.
-        </p>
-      </section>
+      <AiSettings onError={onError} />
 
       <section aria-labelledby="privacy-heading" className="panel">
         <h2 id="privacy-heading">Privacy</h2>

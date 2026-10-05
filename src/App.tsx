@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './lib/api';
 import { messageFor } from './lib/pure';
 import type { Page, PageSummary, Project, WorkspaceInfo } from './lib/types';
@@ -11,6 +11,7 @@ import { SearchView } from './components/SearchView';
 import { SettingsView } from './components/SettingsView';
 import { TrashView } from './components/TrashView';
 import { CommandPalette, type PaletteAction } from './components/CommandPalette';
+import { AssistantPanel } from './components/AssistantPanel';
 
 export type View =
   | { kind: 'home' }
@@ -32,6 +33,9 @@ export function App() {
   const [loadNonce, setLoadNonce] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(true);
+  const viewRef = useRef(view);
+  viewRef.current = view;
 
   const refreshLists = useCallback(async () => {
     const [nextPages, nextProjects] = await Promise.all([api.listPages(), api.listProjects()]);
@@ -40,6 +44,24 @@ export function App() {
   }, []);
 
   const reportError = useCallback((err: unknown) => setError(messageFor(err)), []);
+
+  /** Reloads the open page after an approved AI change so the editor has the new revision. */
+  const reloadCurrentPage = useCallback(async () => {
+    const current = viewRef.current;
+    if (current.kind !== 'page') return;
+    try {
+      const loaded = await api.getPage(current.id);
+      setPage(loaded);
+      setLoadNonce((n) => n + 1);
+    } catch (err) {
+      reportError(err);
+    }
+  }, [reportError]);
+
+  const aiDataChanged = useCallback(() => {
+    void refreshLists().catch(reportError);
+    void reloadCurrentPage();
+  }, [refreshLists, reloadCurrentPage, reportError]);
 
   const enterWorkspace = useCallback(
     async (info: WorkspaceInfo) => {
@@ -147,7 +169,7 @@ export function App() {
   ];
 
   return (
-    <div className="app-shell">
+    <div className={assistantOpen ? 'app-shell with-assistant' : 'app-shell'}>
       <Sidebar
         workspaceName={workspace.name}
         pages={pages}
@@ -160,6 +182,11 @@ export function App() {
       />
 
       <main className="main" id="main">
+        <div className="main-toolbar">
+          <button type="button" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((open) => !open)}>
+            {assistantOpen ? 'Hide assistant' : 'Show assistant'}
+          </button>
+        </div>
         {error && (
           <div role="alert" className="banner">
             <span>{error}</span>
@@ -221,6 +248,17 @@ export function App() {
           <TrashView onRestored={() => void refreshLists().catch(reportError)} onError={reportError} />
         )}
       </main>
+
+      {assistantOpen && (
+        <AssistantPanel
+          pageId={view.kind === 'page' ? view.id : null}
+          pageTitle={view.kind === 'page' && page ? page.title : null}
+          onOpenPage={openPage}
+          onOpenTasks={() => go({ kind: 'tasks', projectId: null })}
+          onOpenSettings={() => go({ kind: 'settings' })}
+          onDataChanged={aiDataChanged}
+        />
+      )}
 
       <CommandPalette open={paletteOpen} actions={paletteItems} onClose={() => setPaletteOpen(false)} />
     </div>

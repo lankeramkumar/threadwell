@@ -1,6 +1,14 @@
 // Typed wrappers around Tauri commands. Components call these, never `invoke` directly.
 import { invoke } from '@tauri-apps/api/core';
 import type {
+  AiConfig,
+  AiStatus,
+  ConversationSummary,
+  Proposal,
+  RunStarted,
+  RunSummary,
+  StoredMessage,
+  ToolTrace,
   BackupInfo,
   JsonNode,
   NewTask,
@@ -52,4 +60,20 @@ export const api = {
   createBackup: (destDir: string) => invoke<BackupInfo>('create_backup', { destDir }),
   restoreBackup: (backupDir: string, destDir: string) =>
     invoke<WorkspaceInfo>('restore_backup', { backupDir, destDir }),
+  aiGetStatus: () => invoke<AiStatus>('ai_get_status'),
+  aiSaveConfig: (endpoint: string, model: string, allowRemote: boolean) =>
+    invoke<AiConfig>('ai_save_config', { endpoint, model, allowRemote }),
+  aiChatSend: (request: { runId: string; conversationId: string | null; message: string; pageId: string | null }) =>
+    invoke<RunStarted>('ai_chat_send', { request }),
+  aiPageAction: (request: { runId: string; pageId: string; action: string; language?: string; selectedText: string }) =>
+    invoke<RunStarted>('ai_page_action', { request }),
+  aiCancel: (runId: string) => invoke<boolean>('ai_cancel', { runId }),
+  aiListConversations: () => invoke<ConversationSummary[]>('ai_list_conversations'),
+  aiGetConversation: (id: string) => invoke<StoredMessage[]>('ai_get_conversation', { id }),
+  aiListRuns: (limit?: number) => invoke<RunSummary[]>('ai_list_runs', { limit: limit ?? null }),
+  aiRunTrace: (runId: string) => invoke<ToolTrace[]>('ai_run_trace', { runId }),
+  aiListProposals: (runId: string | null) => invoke<Proposal[]>('ai_list_proposals', { runId }),
+  aiApplyProposal: (id: string) => invoke<Proposal>('ai_apply_proposal', { id }),
+  aiRejectProposal: (id: string) => invoke<Proposal>('ai_reject_proposal', { id }),
+  aiUndoProposal: (id: string) => invoke<Proposal>('ai_undo_proposal', { id }),
 };
