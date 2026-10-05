@@ -73,8 +73,8 @@ r.font.color.rgb = RGBColor(0x2E, 0x3A, 0x6B)
 sub = doc.add_paragraph()
 r = sub.add_run("Step-by-step user guide")
 r.font.size = Pt(15)
-para("Version 0.1.3 for Windows 11. Covers notes, tasks, search, import and export, backup, the local assistant, "
-     "meetings, and recipes.")
+para("Version 0.1.4 for Windows 11. Covers notes, tasks, search, import and export, backup, the local assistant, "
+     "meetings, recipes, and several workspaces.")
 
 doc.add_heading("Before you start", level=1)
 para("Threadwell keeps everything in a folder you choose on your computer. There is no account and no sign-in. "
@@ -90,7 +90,7 @@ bullets([
 doc.add_heading("1. Install Threadwell", level=1)
 para("You need Windows 11. The installers are not code-signed, so Windows will show a warning the first time.")
 steps([
-    "Open the installer you were given: Threadwell_0.1.3_x64_en-US.msi (Windows Installer) or Threadwell_0.1.3_x64-setup.exe.",
+    "Open the installer you were given: Threadwell_0.1.4_x64_en-US.msi (Windows Installer) or Threadwell_0.1.4_x64-setup.exe.",
     "If Windows SmartScreen says it protected your PC, click More info, then Run anyway. Only do this for the file you downloaded from the place you trust.",
     "Follow the installer. Threadwell needs Microsoft Edge WebView2 Runtime, which Windows 11 includes.",
     "Start Threadwell from the Start menu.",
@@ -327,7 +327,8 @@ note("Without an engine, Import audio… explains what is needed. You can always
 doc.add_heading("Agent design and local performance traces (optional)", level=2)
 para("Settings → Finding information → Agent design chooses how the assistant works. One agent is the default and is the "
      "one we recommend. Several agents splits each question into planning, research, writing and an optional action step. "
-     "In our own tests it was slower and did not answer better, so treat it as experimental.")
+     "On our fourth test set it was slower and gave worse answers on most measures, though it refused injected instructions better. "
+     "Keep one agent unless you want to try the other on your own notes.")
 para("Settings → Performance traces (local only) can record timing for assistant runs in a file on your computer, in "
      "OpenTelemetry format. Traces never include prompts, answers, page text or search results. Nothing is sent anywhere. "
      "The setting takes effect the next time you start Threadwell. Delete traces removes the file.")
@@ -346,7 +347,23 @@ note("Recipes run only while Threadwell is open. If your computer was off at the
      "Pause stops a recipe without deleting it. Delete removes the recipe and its run history, but drafts already created are kept.")
 
 # ---------------------------------------------------------------- 13
-doc.add_heading("13. Troubleshooting", level=1)
+doc.add_heading("13. Work with several workspaces", level=1)
+para("Use one workspace per area of your life or work. Each workspace has its own pages, tasks, meetings, recipes and "
+     "assistant history, and pages never move between them. The assistant can also answer from other workspaces.")
+steps([
+    "Open Settings and find the Workspaces section. Your known workspaces are listed, and the open one is marked.",
+    "To add one, click Create or open another workspace. Create a new workspace in an empty folder, or open an existing one.",
+    "To change workspace, click Switch on the one you want. Anything it was doing in the previous workspace is stopped first.",
+    "To rename the open workspace, type a name under Rename the open workspace and click Rename.",
+    "To take a workspace off the list, click Remove from list. Its folder and pages are kept, and you can open it again later.",
+])
+doc.add_heading("Ask the assistant about other workspaces", level=2)
+para("Above the message box, the Answer from list has three kinds of choice. This workspace only is the default. "
+     "All workspaces searches every workspace. A workspace name searches only that one. Other workspaces are read-only "
+     "for the assistant. It never changes them, and proposed changes always go to the open workspace only. "
+     "You can also name a workspace in your question, for example: What is in my Home workspace?")
+
+doc.add_heading("14. Troubleshooting", level=1)
 table(["Problem", "Cause and fix"], [
     ["SmartScreen blocks the installer", "The installer is unsigned. Click More info, then Run anyway, for the file you trust."],
     ["Threadwell says it cannot find a workspace", "The folder was moved or renamed. Open the workspace again from its new location."],
@@ -367,20 +384,20 @@ table(["Problem", "Cause and fix"], [
 ], widths=[6, 10])
 
 # ---------------------------------------------------------------- 14
-doc.add_heading("14. Where your data lives", level=1)
+doc.add_heading("15. Where your data lives", level=1)
 bullets([
     "Your workspace folder contains threadwell.db (all notes, tasks, meetings and settings), plus the files that go with the database: threadwell.db-wal and threadwell.db-shm while the app is open.",
     "Do not edit those files by hand, and do not copy the folder while Threadwell is open. Use Create backup instead.",
     "Threadwell keeps only one small file outside your workspace: it remembers which workspace to reopen.",
 ])
 
-doc.add_heading("15. Delete a workspace", level=1)
+doc.add_heading("16. Delete a workspace", level=1)
 para("Threadwell has no delete button for workspaces. A workspace is a folder, so you delete the folder. This is permanent.")
 steps([
     "Close Threadwell completely, including from the system tray.",
     "Back up first if you might need the data later: open the workspace, then Settings → Create backup.",
     "In File Explorer, delete the workspace folder. It holds threadwell.db, the -wal and -shm files beside it, and an attachments folder. Deleting the folder removes everything.",
-    "Optional: delete %APPDATA%\\dev.threadwell.app\\last-workspace.txt. Threadwell remembers the last workspace there. If the folder is gone, the app shows the first-run screen anyway.",
+    "Optional: in Settings → Workspaces, click Remove from list. This clears the entry from %APPDATA%\\dev.threadwell.app\\workspaces.json. If the folder is gone, the app shows the first-run screen anyway.",
 ])
 note("Uninstalling Threadwell does not delete workspaces, because they live outside the program folder.")
 

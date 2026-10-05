@@ -12,7 +12,7 @@ Create a lightweight desktop workspace where people write notes, organize projec
 
 Product name: **Threadwell**. Use this name consistently in the application title, onboarding, documentation, and packaging. Trademark and domain availability have not been verified.
 
-Primary users: individual developers, students, freelancers, and knowledge workers. The initial product is single-user. It should also demonstrate strong applied AI engineering through grounded retrieval, structured tool use, safe mutations, failure recovery, and repeatable evaluation.
+Primary users: individual developers, students, freelancers, and knowledge workers. The initial product is single-user. One installation can hold several separate workspaces, each its own folder and database. It should also demonstrate strong applied AI engineering through grounded retrieval, structured tool use, safe mutations, failure recovery, and repeatable evaluation.
 
 Product promise: "Your notes, projects, and AI assistant in one desktop workspace."
 
@@ -31,9 +31,12 @@ Notion already has desktop clients. Our differentiation is local workspace owner
 - Windows 11 first; keep architecture portable to macOS and Linux. Verify builds only on available operating systems and report the others as unverified.
 - Local-first persistence; no account or hosted database required for the initial release.
 - Notes, tasks, search, export, and viewing previous conversations work without internet.
+- Several workspaces per installation. Pages, tasks, meetings, recipes and assistant history never mix between workspaces. The assistant reads another workspace only when the user selects it, read-only.
 - Cloud AI uses the user's own API key. Optional local inference connects to an existing local model server; model weights are not bundled.
+  *Status (0.1.4):* only the local model server adapter (Ollama) is built. The cloud adapter is not built yet.
 - AI is integrated into the editor and project workflow, not isolated in a generic chat screen.
 - Default to one agent with a bounded tool loop. Introduce additional agents only if evaluation demonstrates a need.
+  *Status (0.1.4):* an optional several-agent mode is built and was compared on held-out splits (see eval/README.md). It did not win on the gates, so one agent remains the default. The user may choose the other mode.
 
 Later, explicitly excluded from the initial release: multi-user collaboration, cloud synchronization, enterprise SSO, arbitrary shell execution, autonomous browser control, remote connectors, billing, and always-on cloud agents. Do not display nonfunctional buttons for these features.
 
@@ -43,7 +46,7 @@ Later, explicitly excluded from the initial release: multi-user collaboration, c
 Create a workspace, create nested pages, write formatted notes, link related pages, and organize tasks into table and board views. Changes survive restart and unexpected process termination within the stated autosave window.
 
 ### Ask with evidence
-Ask "What did we decide about authentication?" The assistant searches the selected workspace, answers with clickable page/block citations, identifies conflicting decisions when present, and acknowledges missing evidence. Opening a citation navigates to the relevant content.
+Ask "What did we decide about authentication?" The assistant searches the selected workspace (and any other workspace the user explicitly selects, read-only), answers with clickable page/block citations, identifies conflicting decisions when present, and acknowledges missing evidence. Opening a citation navigates to the relevant content.
 
 ### Turn notes into work
 Ask "Create tasks from this planning page." The assistant proposes task titles, descriptions, and source references. Unknown deadlines remain unset. The user reviews the proposed changes, applies them, and can undo that run.
@@ -62,7 +65,7 @@ Create a recipe such as "Draft a weekly update from completed tasks." Run it man
 Use a restrained productivity interface: readable typography, neutral colors, consistent spacing, subtle borders, and light/dark themes. Support keyboard navigation and accessible labels, focus states, contrast, and reduced motion.
 
 Layout:
-- Left sidebar: workspace selector, search, pages tree, projects, meetings, automations, settings, favorites, and trash.
+- Left sidebar: search, pages tree, projects, meetings, automations, settings, favorites, and trash.
 - Center: document editor, task table/board, search results, or meeting page.
 - Collapsible right panel: AI conversation, selected context, citations, and proposed changes.
 - Command palette: create/open pages, search, switch views, invoke supported AI actions.
@@ -107,7 +110,7 @@ Start with lexical search, then add semantic retrieval in milestone 3. Chunk by 
 
 Use hybrid ranking with configurable lexical/vector weights. Prefer a simple embedded vector index; do not require a hosted vector database. Reindex changed pages, exclude deleted pages promptly, and invalidate stale embeddings by content hash and embedding-model identity.
 
-Every citation must correspond to a retrieved source ID, not a model-invented filename. Validate citation IDs before rendering. If sources changed after retrieval, indicate staleness or rerun retrieval. Treat page/import content as untrusted data, not instructions granting tool access. Keep retrieval scoped to the active workspace and user-selected context. Allow exclusion of pages from AI context.
+Every citation must correspond to a retrieved source ID, not a model-invented filename. Validate citation IDs before rendering. If sources changed after retrieval, indicate staleness or rerun retrieval. Treat page/import content as untrusted data, not instructions granting tool access. Keep retrieval scoped to the active workspace and user-selected context. Other workspaces are searched only when the user selects them, by keyword, read-only, and each hit is labelled with its workspace name. Allow exclusion of pages from AI context.
 
 ## 9. Agent behavior and mutation protocol
 
@@ -117,7 +120,7 @@ The model proposes domain actions; it never sends raw SQL or shell commands for 
 
 All AI-originated writes are proposals. Before applying, show the affected pages/tasks and a readable diff. Apply approved changes transactionally, with idempotency keys and revision checks. If content changed meanwhile, reject the stale proposal and offer regeneration. Save enough information to undo the approved run; if subsequent edits conflict, offer a reviewed restoration rather than overwriting them.
 
-Cancellation stops future model/tool work and must not apply pending proposals. Recording a read-only trace is allowed; changing workspace content requires the described review flow.
+Cancellation stops future model/tool work and must not apply pending proposals. Proposals are created only for the open workspace, never for another one. Recording a read-only trace is allowed; changing workspace content requires the described review flow.
 
 Recurring recipes create drafts/proposals by default. Record trigger, run status, duration, provider/model, tool results, and error category. Scheduling uses an explicit timezone and daylight-saving-aware behavior. Avoid claiming 24/7 execution when the process is closed or the device is asleep.
 
@@ -127,7 +130,7 @@ Milestone 4 supports pasted/imported transcripts before live capture. Audio impo
 
 Store API keys in the operating system credential store, not localStorage, exported backups, or plaintext config. Local endpoint addresses are configurable; allow remote endpoints only through explicit settings. State which selected context/audio is transmitted when using cloud providers. Do not label cloud processing as offline or promise provider retention/training terms without checking the configured service.
 
-Do not collect telemetry by default. Never log API keys. Diagnostic traces should minimize sensitive content and support deletion. Render imported HTML/Markdown and model output safely, restrict external navigation, and sanitize filenames and paths. Make no enterprise security certification claims.
+Do not collect telemetry by default. Local performance traces are opt-in: they are written to a file on the user's computer in OpenTelemetry format, record names, counts and timings but no prompts, answers or page text, and can be deleted. Never log API keys. Diagnostic traces should minimize sensitive content and support deletion. Render imported HTML/Markdown and model output safely, restrict external navigation, and sanitize filenames and paths. Make no enterprise security certification claims.
 
 ## 11. Delivery milestones
 
@@ -137,6 +140,8 @@ Do not collect telemetry by default. Never log API keys. Diagnostic traces shoul
 4. **Meeting knowledge:** transcript import, sourced summaries and proposed tasks, audio import through a configured transcription adapter, explicit failure states.
 5. **Recurring workflows:** recipe editor, manual runs, local scheduling, missed-run handling, draft review, history, and duplicate prevention.
 6. **Release polish:** keyboard/accessibility review, backup restoration, performance measurements, Windows packaging, setup documentation, reproducible demo, and final acceptance verification.
+
+Status after milestone 6: milestones 1 to 6 are built and released as 0.1.3. Version 0.1.4 adds several workspaces with scoped assistant retrieval and the several-agent fixes. Remaining gaps are listed in docs/STATUS.md.
 
 Future extensions: selected-folder indexing, authenticated connectors, custom task properties, live audio capture, optional background service, and collaboration. Document connector authentication and authorization requirements before implementing external access.
 
@@ -159,7 +164,7 @@ Create at least 40 synthetic evaluation cases with reference sources and expecte
 
 Measure retrieval relevance, citation validity, answer support, task-field precision/recall, abstention, mutation approval compliance, latency, and available token usage. A rubric and human spot checks are required for semantic quality; an LLM judge alone is insufficient. Preserve failures and run configurations. Do not fabricate benchmark results or costs when provider usage data is unavailable.
 
-Release gates: no writes without approval in the automated suite; no cross-workspace retrieval in isolation tests; every rendered citation resolves to its source; no plaintext secrets in checked artifacts; successful backup/restore round trip. Declare thresholds for probabilistic quality before evaluating the held-out set and report the results.
+Release gates: no writes without approval in the automated suite; no retrieval from another workspace unless the user selected it, checked in isolation tests; every rendered citation resolves to its source; no plaintext secrets in checked artifacts; successful backup/restore round trip. Declare thresholds for probabilistic quality before evaluating the held-out set and report the results.
 
 ## 14. Recruiter demo and definition of done
 

@@ -40,3 +40,14 @@ enforces it, and says what is still verified by hand. A gate marked **manual** i
 - Audio transcription is not built. It needs an engine that is not configured.
 - Scheduled runs happen only while the app is open. No background service is installed.
 - Semantic evaluation needs a human rubric review. The automatic checks in the harness are heuristics.
+
+## Version 0.1.4 checks by hand
+
+- Settings → Workspaces: create a second workspace in an empty folder, switch between the two, and confirm the sidebar
+  shows only the open workspace's pages.
+- Remove a workspace from the list, then confirm its folder and pages still exist and it can be opened again.
+- In the assistant, choose "All workspaces" and ask about content that exists only in the other workspace. The answer
+  should cite it, and the citation should show the workspace name, not a link into the open workspace.
+- Ask the assistant to change content while another workspace is selected. It should say that changes are only proposed
+  in the open workspace, and no proposal should be created for the other workspace.
+- Settings → Agent design: switch to "Several agents", ask a question, then switch back. Both settings should answer.

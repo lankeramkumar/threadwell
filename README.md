@@ -9,7 +9,7 @@ AI assistant runs on a model you install on your own machine.
 [![CI](https://github.com/lankeramkumar/threadwell/actions/workflows/ci.yml/badge.svg)](https://github.com/lankeramkumar/threadwell/actions/workflows/ci.yml)
 
 > **Read this first.** The notes, tasks, search, import, export and backup features are ready to use. The AI assistant
-> is experimental: on our held-out evaluation it fails four of nine quality gates. Check the sources it cites, and
+> is experimental: on our latest held-out split, four of its eight gated quality measures fail. Check the sources it cites, and
 > nothing it suggests is saved until you click **Apply**. The installers are not code-signed, so Windows will warn you.
 
 ---
@@ -42,14 +42,15 @@ AI assistant runs on a model you install on your own machine.
 | **AI assistant** (optional) | Ask questions about your notes and get answers with numbered sources. Use the selected text as context, search past conversations, and rewrite, summarise, expand or translate selected text. Suggested changes are reviewed before anything is saved. |
 | **Meetings** (optional)     | Import a meeting transcript (text, WebVTT or SRT), or a recording through a local transcription engine you install. Get a summary, decisions, open questions and action items, each linked to the lines it came from.                                  |
 | **Recipes** (optional)      | Saved instructions that draft a page on a daily or weekly schedule while the app is open.                                                                                                                                                              |
+| **Workspaces**              | Several separate workspaces, each with its own pages, tasks and history, switchable in Settings. The assistant can answer from one, or from all of them.                                                                                               |
 
 Everything except the assistant, meetings and recipes works with no internet connection and no AI model installed.
 
 ## Download and install
 
 1. Go to the [Releases page](https://github.com/lankeramkumar/threadwell/releases) and download one of:
-   - `Threadwell_0.1.3_x64_en-US.msi`: Windows Installer package
-   - `Threadwell_0.1.3_x64-setup.exe`: setup program
+   - `Threadwell_0.1.4_x64_en-US.msi`: Windows Installer package
+   - `Threadwell_0.1.4_x64-setup.exe`: setup program
 2. Run it. If Windows SmartScreen says it protected your PC, click **More info**, then **Run anyway**. This happens
    because the installer is not code-signed.
 3. Start **Threadwell** from the Start menu.
@@ -135,6 +136,9 @@ Once a model is set up (see below):
   _Expand_ or _Translate_, and click **Run on selection**. Compare the original and the suggestion, then **Accept** or
   **Reject**. Numbers the suggestion dropped are flagged in red.
 - **Keep a page private:** tick **Exclude from AI** in the page header. The assistant will not read or search it.
+- **Choose which workspaces it answers from:** the **Answer from** list above the message box offers _This workspace only_,
+  _All workspaces_, or one named workspace. Other workspaces are read-only for the assistant, and it never proposes changes
+  to them. Proposed changes always go to the open workspace only.
 - **Check what it did:** _Settings_ → **Assistant history** lists recent runs and each tool call.
 
 ### Meetings (optional)
@@ -183,14 +187,28 @@ acting on an answer.
 ## Your data, backups and privacy
 
 - **Where your data is:** in the workspace folder you chose. It holds `threadwell.db` (notes, tasks, meetings, settings)
-  and an `attachments` folder. Threadwell also remembers which workspace to reopen, in your user profile.
+  and an `attachments` folder. Threadwell also keeps its list of workspaces and the one to reopen in your user profile
+  (`workspaces.json` and `last-workspace.txt`).
 - **Network:** Threadwell makes no network requests by itself. The only outbound connection is to the model server you
   set up, and only when you use the assistant.
-- **Telemetry:** none.
+- **Telemetry:** none by default. Performance traces are opt-in and stay on your computer (Settings → Performance traces).
 - **Secrets:** Threadwell stores no API keys. The repository has a secret scan in its checks.
 - **Backups:** a backup is a readable folder containing your data in plain form. Store it somewhere you trust.
 
 Do not edit `threadwell.db` by hand, and do not copy the workspace folder while Threadwell is open. Use **Create backup**.
+
+### Several workspaces
+
+Each workspace is its own folder with its own pages, tasks, meetings, recipes and assistant history. Pages never move
+between workspaces.
+
+1. Open **Settings** → **Workspaces**. Your known workspaces are listed, with the open one marked.
+2. **Create or open another workspace** returns to the first-run screen, where you can create a new workspace in an
+   empty folder or open an existing one.
+3. **Switch** opens another workspace. Runs in progress in the old one are stopped first.
+4. **Remove from list** forgets a workspace in Threadwell's list. Its folder and data are kept, and you can open it again
+   later from **Create or open another workspace**.
+5. **Rename the open workspace** changes the name shown in the sidebar.
 
 ### Deleting a workspace
 
@@ -199,7 +217,8 @@ Threadwell has no delete button for workspaces, because a workspace is a folder.
 1. Close Threadwell completely, including from the system tray. Back up first if you might need the data.
 2. Delete the workspace folder in File Explorer. Deleting it is permanent, and it removes `threadwell.db`, its `-wal`
    and `-shm` files, and the `attachments` folder.
-3. Optional: delete `%APPDATA%\dev.threadwell.app\last-workspace.txt`. Threadwell remembers the last workspace there.
+3. Optional: in Settings → Workspaces, click **Remove from list**. This also clears the entry from the list stored in
+   `%APPDATA%\dev.threadwell.app\workspaces.json`.
    If the folder is gone, the app shows the first-run screen anyway.
 
 Uninstalling Threadwell does not delete workspaces.
@@ -247,15 +266,17 @@ The first build takes several minutes because SQLite is compiled from source.
 
 ## Project status and limits
 
-Threadwell implements all six milestones in its brief. Details are in [docs/STATUS.md](docs/STATUS.md). The main limits:
+Threadwell implements all six milestones in its brief. Version 0.1.4 adds several workspaces, scoped assistant
+retrieval across them, and an optional several-agent mode. Details are in [docs/STATUS.md](docs/STATUS.md). The main limits:
 
-- **Assistant quality:** fails four held-out gates. Treat its output as a draft.
+- **Assistant quality:** on the latest held-out split, four of eight gated measures fail (phrasing, task recall, one leaked injected word, and injection-triggered proposals). Treat its output as a draft. See [eval/README.md](eval/README.md).
 - **Platform:** Windows 11 only, verified on one machine.
 - **Installers:** unsigned, and not yet tested on a clean machine.
 
 - **OneNote (`.one`) files:** not supported. Export them from OneNote as Word or Markdown first. Scanned PDFs have no text and cannot be imported.
 - **Audio transcription:** needs a local engine (for example whisper.cpp) and a model that you install yourself. It has not been tested end to end on this machine.
 - **Scheduled recipes:** run only while the app is open.
+- **Other workspaces in the assistant:** searched by keyword only, read-only, and only when you select them.
 - **Memory:** about 336 MiB across the app and its WebView2 processes when idle, above the 250 MiB target.
 - **Accessibility:** reviewed by inspection, not tested with assistive technology.
 

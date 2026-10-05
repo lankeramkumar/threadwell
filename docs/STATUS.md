@@ -3,6 +3,18 @@
 This is the detailed checklist for every milestone in [intent.md](../intent.md): what is built, what is verified,
 and what is not. The overview is in the [README](../README.md).
 
+## Update for version 0.1.4
+
+| Item                                       | Status                                                                                                                                                                                                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Several workspaces                         | Built. Settings → Workspaces lists known workspaces, switches, renames, and removes entries from the list without deleting data. Tested: two workspaces keep their pages apart, and retrieval on one never returns pages from the other.                  |
+| Organise pages per workspace               | Built by design: each workspace has its own database, and the sidebar shows only the open workspace.                                                                                                                                                      |
+| Assistant can answer from other workspaces | Built. Scope selector (this workspace, all, or one named workspace), and workspace names in the message. Other workspaces are read-only and keyword-searched only. Proposals still go to the open workspace only.                                         |
+| Multi-agent fixes                          | Built: writer abstains without sources, conversation history is passed, and the actor is skipped outside the open workspace. Covered by scripted tests.                                                                                                   |
+| Multi-agent evaluation (heldout4)          | Run on a pre-registered split. Several agents: better on injection (0 leaks, 0 proposals), worse on phrasing, invented due date (1), and about 1.9x slower. Single agent: 1 injection leak and 3 injection proposals. The single agent stays the default. |
+| Task keyword recall                        | Still 0.00 on heldout4 for both designs. Not solved.                                                                                                                                                                                                      |
+| Injection leak with the single agent       | Open. Case h4-i2 echoed the injected word once. Proposals from injected text (h4-i1) remain pending until a user applies them.                                                                                                                            |
+
 ## Update for version 0.1.3
 
 | Item                                            | Status                                                                                                                                                                                                                    |
@@ -34,7 +46,7 @@ These supersede the older numbers below where they conflict.
 All six milestones in `intent.md` are implemented in this build, with the limits listed under each one. Two results
 need to be read with care:
 
-- **The assistant does not meet its own quality gates.** On the held-out evaluation, four of nine gates fail, including
+- **The assistant does not meet its own quality gates.** On the held-out evaluation, four of eight gated measures fail, including
   the injection gates. See [eval/README.md](eval/README.md). Treat the assistant as experimental.
 - **Several items cannot be verified here.** Audio transcription has no engine, scheduled runs need the app open, and
   the installers are unsigned and were not tested on a clean machine.
@@ -246,7 +258,7 @@ package on a clean machine has not been tested.
 
 - Your workspace is the folder you choose. It contains `threadwell.db` and `attachments/`.
 - Back up with **Settings → Create backup**. The backup is a readable folder that includes your data in plain form.
-- Threadwell collects no telemetry and makes no network requests in this build.
+- Threadwell collects no telemetry by default. Opt-in performance traces stay on the computer. The only network requests are to the model server you set up, and only when you use the assistant.
 - There are no API keys or secrets in this milestone. The `.env` pattern is kept for later milestones; `.env` is
   git-ignored and `.env.example` documents the policy.
 

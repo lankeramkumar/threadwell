@@ -149,20 +149,36 @@ violations before commit.
 `ai::eval` runs the real retrieval and agent loop over `eval/cases.json` and writes `eval/reports/`. See `eval/README.md`
 for the gates, the results, and the limits.
 
-## Agents and telemetry (version 0.1.3)
+## Workspaces (version 0.1.4)
+
+Each workspace is a folder with its own `threadwell.db`, so pages, tasks, meetings, recipes and assistant history never mix.
+`workspaces.rs` keeps a registry of known workspaces (name and path) in `config_dir/workspaces.json`. Every workspace the
+app opens is added to it by `commands::install`. Switching, renaming and forgetting go through commands that check their
+inputs; forgetting never deletes data, and the open workspace cannot be forgotten.
+
+The assistant chooses a scope for each question: `current` (the open workspace only, the default), `all`, or a named
+workspace. The scope comes from the composer's list, or from the message ("all workspaces", or a workspace name as a
+whole word). Other workspaces are opened on a read-only connection and searched by keyword. Their hits are labelled with
+the workspace name, and their citations use the kind `remote_page`, which the interface shows as text rather than a link
+into the open workspace. Changes are proposed only for the open workspace.
+
+## Agents, workspaces and telemetry (version 0.1.4)
 
 **Single agent (default).** `ai::agent::run_loop` runs one model with the full tool set, within six steps.
 
-**Several agents (experimental, `ai.architecture = multi`).** `ai::graph::run_multi` runs four roles in sequence:
+**Several agents (optional, `ai.architecture = multi`).** `ai::graph::run_multi` runs four roles in sequence:
 
 - _planner_: one JSON call that decides whether the question asks for a change.
 - _researcher_: a tool loop with read tools only, three steps at most.
-- _writer_: one call with no tools, which writes the answer from the research notes.
-- _actor_: a tool loop with read and propose tools, run only when the planner asked for a change.
+- _writer_: one call with no tools. It is given source tokens only when the research found sources, so it cannot cite
+  material the research never read.
+- _actor_: a tool loop with read and propose tools. It runs only when the planner asked for a change and the turn covers
+  the open workspace only.
 
-Each role is shown only the tool schemas it may use, and `Allowed` refuses any other call at execution time. The
-caller resolves citations exactly as for the single agent. The comparison result is in `eval/README.md`. The single agent
-stayed the default because the several-agent design did not win on any gated measure.
+Earlier conversation turns are passed to every role as quoted data. Each role is shown only the tool schemas it may use,
+and `Allowed` refuses any other call at execution time. The caller resolves citations exactly as for the single agent.
+The single agent stays the default. On the fourth held-out split the several-agent design was better at refusing
+injected instructions and worse on answer phrasing, due-date grounding and speed; see `eval/README.md`.
 
 **Telemetry (off by default).** `telemetry::init` installs a `tracing` subscriber with an OpenTelemetry layer when the
 user enables local traces. Spans are exported by a local JSON-lines exporter, with one rotated backup at 5 MB. The spans
