@@ -3,6 +3,21 @@
 This is the detailed checklist for every milestone in [intent.md](../intent.md): what is built, what is verified,
 and what is not. The overview is in the [README](../README.md).
 
+## Update for linked sources (unreleased, after 0.1.4)
+
+| Item                                 | Status                                                                                                                                                                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Link a folder                        | Built. Sources view and sidebar entry. The folder is read once when linked, then kept in step.                                                                                                                                    |
+| Source code and documents            | Built. Code and config files (about 40 extensions) are kept as code blocks labelled with their extension. Markdown, text, Word, text-based PDF and CSV use the existing converters.                                               |
+| Ignore rules                         | Built. Build output, dependencies, hidden files, lock files, minified and binary files, and `.gitignore` simple patterns. Negated patterns are not supported.                                                                     |
+| Keep in step                         | Built. Files are compared by modified time and size, and re-read only when they change. New files are added, changed files updated, and deleted files moved to Trash. The watcher runs about once a minute while the app is open. |
+| Read only                            | Built. Linked-file pages refuse edits in the backend and the editor. Nothing is written to the folder.                                                                                                                            |
+| Assistant answers about linked files | Built and tested live: `qwen2.5:3b`, sample project, question about duplicate charges. The answer cited `src/charge.rs` (ignored test `live_ollama_answers_from_linked_source_code_with_a_file_citation`).                        |
+| Citations to line ranges             | Not built. Citations name the file.                                                                                                                                                                                               |
+| Code-question evaluation split       | Not built. It needs a pre-registered split before results are reported.                                                                                                                                                           |
+| In-app file viewer with line numbers | Not built. Linked files open in the read-only page view.                                                                                                                                                                          |
+| Scale                                | 5,000 files per folder. Not measured on a large real repository.                                                                                                                                                                  |
+
 ## Update for version 0.1.4
 
 | Item                                       | Status                                                                                                                                                                                                                                                    |

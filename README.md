@@ -2,8 +2,8 @@
 
 **Your notes, projects and an AI assistant in one desktop workspace.**
 
-Threadwell is a Windows desktop app for writing notes, organising pages and tasks, and searching everything you have
-written. Your data stays in a folder on your computer. There is no account, no sign-in and no cloud service. An optional
+Threadwell is a Windows desktop app for asking questions about your documents and project folders, writing notes,
+organising pages and tasks, and searching everything you have written. Your data stays in a folder on your computer. There is no account, no sign-in and no cloud service. An optional
 AI assistant runs on a model you install on your own machine.
 
 [![CI](https://github.com/lankeramkumar/threadwell/actions/workflows/ci.yml/badge.svg)](https://github.com/lankeramkumar/threadwell/actions/workflows/ci.yml)
@@ -32,17 +32,18 @@ AI assistant runs on a model you install on your own machine.
 
 ## What you can do
 
-| Area                        | What it does                                                                                                                                                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore. Attach files (up to 25 MB) that are stored inside the workspace.                               |
-| **Tasks**                   | Tasks with status, priority, optional due date and project. Table view and board view with drag and drop. Export to CSV.                                                                                                                               |
-| **Search**                  | One search box across pages and tasks, with highlighted matches. Ctrl+K command palette for jumping to any page or view.                                                                                                                               |
-| **Import and export**       | Import single files or a whole folder of notes (Markdown, text, Word, text-based PDF and CSV). Watch a folder and sync its new notes. Export every page to Markdown files.                                                                             |
-| **Backup**                  | Full workspace backup to a folder, checksummed, and restore into an empty folder.                                                                                                                                                                      |
-| **AI assistant** (optional) | Ask questions about your notes and get answers with numbered sources. Use the selected text as context, search past conversations, and rewrite, summarise, expand or translate selected text. Suggested changes are reviewed before anything is saved. |
-| **Meetings** (optional)     | Import a meeting transcript (text, WebVTT or SRT), or a recording through a local transcription engine you install. Get a summary, decisions, open questions and action items, each linked to the lines it came from.                                  |
-| **Recipes** (optional)      | Saved instructions that draft a page on a daily or weekly schedule while the app is open.                                                                                                                                                              |
-| **Workspaces**              | Several separate workspaces, each with its own pages, tasks and history, switchable in Settings. The assistant can answer from one, or from all of them.                                                                                               |
+| Area                        | What it does                                                                                                                                                                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore. Attach files (up to 25 MB) that are stored inside the workspace.                                                                          |
+| **Tasks**                   | Tasks with status, priority, optional due date and project. Table view and board view with drag and drop. Export to CSV.                                                                                                                                                                          |
+| **Search**                  | One search box across pages and tasks, with highlighted matches. Ctrl+K command palette for jumping to any page or view.                                                                                                                                                                          |
+| **Import and export**       | Import single files or a whole folder of notes (Markdown, text, Word, text-based PDF and CSV). Watch a folder and sync its new notes. Export every page to Markdown files.                                                                                                                        |
+| **Backup**                  | Full workspace backup to a folder, checksummed, and restore into an empty folder.                                                                                                                                                                                                                 |
+| **AI assistant** (optional) | Ask questions about your notes and get answers with numbered sources. Use the selected text as context, search past conversations, and rewrite, summarise, expand or translate selected text. Suggested changes are reviewed before anything is saved.                                            |
+| **Meetings** (optional)     | Import a meeting transcript (text, WebVTT or SRT), or a recording through a local transcription engine you install. Get a summary, decisions, open questions and action items, each linked to the lines it came from.                                                                             |
+| **Recipes** (optional)      | Saved instructions that draft a page on a daily or weekly schedule while the app is open.                                                                                                                                                                                                         |
+| **Linked folders**          | Link a project folder or a folder of documents. Threadwell reads the files (source code and configuration, Markdown, text, Word, text-based PDF, CSV) and keeps them in step while it is open. Ask the assistant about them; each answer names the file it came from. Linked files are read only. |
+| **Workspaces**              | Several separate workspaces, each with its own pages, tasks and history, switchable in Settings. The assistant can answer from one, or from all of them.                                                                                                                                          |
 
 Everything except the assistant, meetings and recipes works with no internet connection and no AI model installed.
 
@@ -162,6 +163,14 @@ Audio recordings are not supported yet. Convert the recording to text first.
 
 Recipes run only while Threadwell is open. A missed run happens once when you next open the app.
 
+## Video guides
+
+Short silent videos of the app, with step lists in [docs/videos/README.md](docs/videos/README.md):
+
+- [Getting around](docs/videos/01-getting-around.mp4) (about 32 seconds)
+- [Linked folders and questions](docs/videos/02-linked-folders-and-questions.mp4) (about 1 minute 40 seconds)
+- [Several workspaces](docs/videos/03-several-workspaces.mp4) (about 34 seconds)
+
 ## Set up the AI assistant
 
 Threadwell does not include an AI model and does not install one for you. It talks to a model server on your own
@@ -197,12 +206,35 @@ acting on an answer.
 
 Do not edit `threadwell.db` by hand, and do not copy the workspace folder while Threadwell is open. Use **Create backup**.
 
+### Linked folders (sources)
+
+Link a folder when you want to ask questions about it, such as a software project or a folder of documents. The folder
+itself is never changed.
+
+1. Open **Sources** in the sidebar and click **Link a folder…**. Choose the project folder.
+2. Threadwell reads it once. Each readable file becomes a read-only page titled with its path, such as `src/charge.rs`.
+   Ignored: `.git`, `node_modules`, `target`, `dist`, `build`, `bin`, `obj`, `__pycache__`, `venv`, lock files, hidden
+   files, binary files, files over 1 MB (code) or 5 MB (documents), and anything listed in the folder's `.gitignore`.
+   Simple patterns are supported (`name`, `name/`, `*.ext`). Negated patterns (`!`) are not.
+3. While Threadwell is open, it checks each linked folder about once a minute. Changed files are read again, new files
+   are added, and deleted files are moved to Trash. Click **Sync now** to check immediately.
+4. Ask the assistant a question, for example _How are duplicate charges prevented?_ Answers cite the file they came from.
+   The source is searched like your notes, and the assistant can also search other workspaces you select.
+5. **Unlink** removes the link. The files become ordinary pages in Trash, and the folder itself is not touched.
+
+Limits: 5,000 files per folder. Citations name the file, not the line numbers. The sync only runs while Threadwell is
+open. A file that changes without changing its size or modified time is not noticed until its size or time changes.
+
+Try it with the sample project in `samples/sample-repo`.
+
 ### Several workspaces
 
 Each workspace is its own folder with its own pages, tasks, meetings, recipes and assistant history. Pages never move
 between workspaces.
 
 1. Open **Settings** → **Workspaces**. Your known workspaces are listed, with the open one marked.
+   The sidebar's **Workspaces** section lists the pages of each workspace. Click a workspace to show its pages. Pages of
+   another workspace are read only there, and clicking one switches to that workspace and opens it.
 2. **Create or open another workspace** returns to the first-run screen, where you can create a new workspace in an
    empty folder or open an existing one.
 3. **Switch** opens another workspace. Runs in progress in the old one are stopped first.
@@ -258,6 +290,7 @@ The first build takes several minutes because SQLite is compiled from source.
 | -------------------------------------------------- | ---------------------------------------------------------------- |
 | [Word user guide](docs/Threadwell-User-Guide.docx) | Step-by-step instructions for every feature                      |
 | [samples/](samples/README.md)                      | Sample files and a first-session walkthrough                     |
+| [docs/videos/](docs/videos/README.md)              | Video guides for the main screens (MP4)                          |
 | [docs/STATUS.md](docs/STATUS.md)                   | Milestone checklist, measurements and verification               |
 | [docs/architecture.md](docs/architecture.md)       | How the app is built: data model, transactions, assistant design |
 | [docs/acceptance.md](docs/acceptance.md)           | Each release gate and the test that enforces it                  |

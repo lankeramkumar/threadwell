@@ -16,6 +16,8 @@ Primary users: individual developers, students, freelancers, and knowledge worke
 
 Product promise: "Your notes, projects, and AI assistant in one desktop workspace."
 
+Direction (set October 5, 2026): the main use is asking questions about the material people already work with. A software engineer links a project folder, or a person links a folder of documents, and asks the assistant about it. Each answer cites the file it came from. Notes, tasks and recipes support that use. They are not the centre.
+
 ## 2. Reference and interpretation
 
 Reference reviewed October 4, 2026: https://www.notion.com/product/ai
@@ -51,6 +53,9 @@ Ask "What did we decide about authentication?" The assistant searches the select
 ### Turn notes into work
 Ask "Create tasks from this planning page." The assistant proposes task titles, descriptions, and source references. Unknown deadlines remain unset. The user reviews the proposed changes, applies them, and can undo that run.
 
+### Ask about linked files
+Link a project folder or a folder of documents (Sources). Threadwell reads the files, keeps them in step while it is open, and answers questions about them, such as "How are duplicate charges prevented?". The answer cites the file it came from. Linked files are read only, and nothing is written to the folder.
+
 ### Edit with AI
 Select text and request a rewrite, summary, expansion, or translation. Show a before/after diff with accept and reject actions. Preserve numbers, names, and factual meaning unless the requested transformation requires a change.
 
@@ -65,7 +70,7 @@ Create a recipe such as "Draft a weekly update from completed tasks." Run it man
 Use a restrained productivity interface: readable typography, neutral colors, consistent spacing, subtle borders, and light/dark themes. Support keyboard navigation and accessible labels, focus states, contrast, and reduced motion.
 
 Layout:
-- Left sidebar: search, pages tree, projects, meetings, automations, settings, favorites, and trash.
+- Left sidebar: search, pages by workspace, sources, projects, meetings, automations, settings, favorites, and trash.
 - Center: document editor, task table/board, search results, or meeting page.
 - Collapsible right panel: AI conversation, selected context, citations, and proposed changes.
 - Command palette: create/open pages, search, switch views, invoke supported AI actions.
@@ -100,6 +105,8 @@ Define narrow provider contracts for generation/streaming, embeddings, and trans
 
 Persist workspaces, pages, blocks, page links, projects, tasks, meetings, transcript segments, conversations, messages, agent runs, tool events, change proposals, recipes, schedules, and migrations.
 
+Linked source folders are recorded per workspace. Each readable file in a linked folder is stored as a read-only page that records its folder and relative path.
+
 Use stable IDs, timestamps, workspace IDs, and revision numbers. Tasks initially have title, description, status, priority, optional due date, project, and source references. Pages have parent, title, structured body, revision, and soft-delete state. Avoid a general-purpose database/formula engine in the first release; introduce extensible properties after basic task views work.
 
 SQLite is authoritative. Search indexes are derived and rebuildable. Attachments live in a workspace-managed directory. Imports copy approved files; never silently move or alter originals. Export Markdown, tasks as CSV, and a versioned full-workspace backup. Implement and verify restoration. Backup consistency must account for SQLite WAL, preferably using the database backup API.
@@ -110,7 +117,7 @@ Start with lexical search, then add semantic retrieval in milestone 3. Chunk by 
 
 Use hybrid ranking with configurable lexical/vector weights. Prefer a simple embedded vector index; do not require a hosted vector database. Reindex changed pages, exclude deleted pages promptly, and invalidate stale embeddings by content hash and embedding-model identity.
 
-Every citation must correspond to a retrieved source ID, not a model-invented filename. Validate citation IDs before rendering. If sources changed after retrieval, indicate staleness or rerun retrieval. Treat page/import content as untrusted data, not instructions granting tool access. Keep retrieval scoped to the active workspace and user-selected context. Other workspaces are searched only when the user selects them, by keyword, read-only, and each hit is labelled with its workspace name. Allow exclusion of pages from AI context.
+Every citation must correspond to a retrieved source ID, not a model-invented filename. Citations to linked files name the file's relative path. Citations to lines within a file are planned, not yet built. Validate citation IDs before rendering. If sources changed after retrieval, indicate staleness or rerun retrieval. Treat page, import and linked-file content as untrusted data, not instructions granting tool access. Linked-file pages are never editable from the app; a change to the file arrives through the next sync. Keep retrieval scoped to the active workspace and user-selected context. Other workspaces are searched only when the user selects them, by keyword, read-only, and each hit is labelled with its workspace name. Allow exclusion of pages from AI context.
 
 ## 9. Agent behavior and mutation protocol
 
@@ -130,6 +137,8 @@ Milestone 4 supports pasted/imported transcripts before live capture. Audio impo
 
 Store API keys in the operating system credential store, not localStorage, exported backups, or plaintext config. Local endpoint addresses are configurable; allow remote endpoints only through explicit settings. State which selected context/audio is transmitted when using cloud providers. Do not label cloud processing as offline or promise provider retention/training terms without checking the configured service.
 
+Linked folders are read only. Threadwell never writes to them, and skips build output, dependencies, hidden files, lock files, binaries, and files over 1 MB (code) or 5 MB (documents). Syncing happens while the app is open.
+
 Do not collect telemetry by default. Local performance traces are opt-in: they are written to a file on the user's computer in OpenTelemetry format, record names, counts and timings but no prompts, answers or page text, and can be deleted. Never log API keys. Diagnostic traces should minimize sensitive content and support deletion. Render imported HTML/Markdown and model output safely, restrict external navigation, and sanitize filenames and paths. Make no enterprise security certification claims.
 
 ## 11. Delivery milestones
@@ -142,6 +151,8 @@ Do not collect telemetry by default. Local performance traces are opt-in: they a
 6. **Release polish:** keyboard/accessibility review, backup restoration, performance measurements, Windows packaging, setup documentation, reproducible demo, and final acceptance verification.
 
 Status after milestone 6: milestones 1 to 6 are built and released as 0.1.3. Version 0.1.4 adds several workspaces with scoped assistant retrieval and the several-agent fixes. Remaining gaps are listed in docs/STATUS.md.
+
+7. **Linked sources and project questions:** link folders, read documents and source code, keep linked files in step while the app is open, cite the file behind each answer, and evaluate questions about code on a pre-registered split. First part (linking, read-only mirroring, file citations) built. Still to do: citations to line ranges, a code-question evaluation split, and an in-app file viewer.
 
 Future extensions: selected-folder indexing, authenticated connectors, custom task properties, live audio capture, optional background service, and collaboration. Document connector authentication and authorization requirements before implementing external access.
 

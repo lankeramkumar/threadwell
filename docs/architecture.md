@@ -149,6 +149,17 @@ violations before commit.
 `ai::eval` runs the real retrieval and agent loop over `eval/cases.json` and writes `eval/reports/`. See `eval/README.md`
 for the gates, the results, and the limits.
 
+## Linked sources (after 0.1.4)
+
+`sources.rs` links folders. A source row (migration 0007) records the folder per workspace. Each readable file is a page with
+`source_id`, `source_path` and `source_hash` set. Source pages go through the normal search, retrieval and citation paths. The
+only difference is that `pages::update` refuses them. The sync uses `pages::save`, which is the same write without that check.
+
+Syncing takes the workspace lock in three short steps. It first walks the folder and reads metadata without the lock. It then
+compares fingerprints (modified time and size) under the lock. Changed files are read and converted without the lock. Finally,
+the changes are applied in batches of 40 under the lock, so other commands can run between batches. A workspace switch during a
+sync stops it. A per-source guard stops two syncs of the same source from running together.
+
 ## Workspaces (version 0.1.4)
 
 Each workspace is a folder with its own `threadwell.db`, so pages, tasks, meetings, recipes and assistant history never mix.

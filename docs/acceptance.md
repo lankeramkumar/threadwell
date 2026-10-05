@@ -41,6 +41,19 @@ enforces it, and says what is still verified by hand. A gate marked **manual** i
 - Scheduled runs happen only while the app is open. No background service is installed.
 - Semantic evaluation needs a human rubric review. The automatic checks in the harness are heuristics.
 
+## Linked sources checks
+
+- Link `samples/sample-repo` from Sources. Its six files appear as pages titled with their paths, and `.gitignore` is not linked.
+- Open a linked file: editing is refused, and the note says where the file lives.
+- Change a linked file in its folder, then click Sync now. The page shows the new text, and the summary counts one update.
+- Delete a linked file, then sync. The page moves to Trash.
+- Unlink the folder. Its pages move to Trash and the folder is unchanged.
+- Ask the assistant "How are duplicate charges prevented?" and check that the answer cites `src/charge.rs`.
+
+Automated: `sources::tests` covers ignore rules, binary and oversized files, mirroring, read-only pages, change and removal
+tracking, missing folders, unlinking, and the sample project. `ai::tests::live_ollama_answers_from_linked_source_code_with_a_file_citation`
+needs Ollama and is run by hand.
+
 ## Version 0.1.4 checks by hand
 
 - Settings → Workspaces: create a second workspace in an empty folder, switch between the two, and confirm the sidebar

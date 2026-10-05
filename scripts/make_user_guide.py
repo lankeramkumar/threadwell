@@ -74,7 +74,7 @@ sub = doc.add_paragraph()
 r = sub.add_run("Step-by-step user guide")
 r.font.size = Pt(15)
 para("Version 0.1.4 for Windows 11. Covers notes, tasks, search, import and export, backup, the local assistant, "
-     "meetings, recipes, and several workspaces.")
+     "meetings, recipes, several workspaces, and linked project folders.")
 
 doc.add_heading("Before you start", level=1)
 para("Threadwell keeps everything in a folder you choose on your computer. There is no account and no sign-in. "
@@ -352,6 +352,7 @@ para("Use one workspace per area of your life or work. Each workspace has its ow
      "assistant history, and pages never move between them. The assistant can also answer from other workspaces.")
 steps([
     "Open Settings and find the Workspaces section. Your known workspaces are listed, and the open one is marked.",
+    "In the sidebar, the Workspaces section lists the pages of each workspace. Pages of other workspaces are read only. Clicking one switches to that workspace and opens the page.",
     "To add one, click Create or open another workspace. Create a new workspace in an empty folder, or open an existing one.",
     "To change workspace, click Switch on the one you want. Anything it was doing in the previous workspace is stopped first.",
     "To rename the open workspace, type a name under Rename the open workspace and click Rename.",
@@ -363,7 +364,22 @@ para("Above the message box, the Answer from list has three kinds of choice. Thi
      "for the assistant. It never changes them, and proposed changes always go to the open workspace only. "
      "You can also name a workspace in your question, for example: What is in my Home workspace?")
 
-doc.add_heading("14. Troubleshooting", level=1)
+doc.add_heading("14. Link a folder and ask about it", level=1)
+para("Link a project folder, such as software source code, or a folder of documents. Threadwell reads the files, keeps them in "
+     "step while the app is open, and the assistant answers questions about them. Each answer names the file it came from. "
+     "Your folder is never changed.")
+steps([
+    "Click Sources in the sidebar, then Link a folder. Choose the folder.",
+    "Threadwell reads the files. Each one appears as a read-only page titled with its path, such as src/charge.rs.",
+    "Source code, configuration, Markdown, text, Word, text-based PDF and CSV files are read. Build output, dependencies, hidden files, lock files and anything in the folder's .gitignore are skipped.",
+    "Click Show files to open a linked file. It is read only.",
+    "Ask the assistant a question about the project. Click a source to open that file.",
+    "Click Sync now to check for changes at once. Threadwell also checks about once a minute while it is open.",
+    "Click Unlink to remove the link. The files move to Trash. The folder is not changed.",
+])
+note("Limits: 5,000 files per folder. Answers cite the file, not the line numbers. Checks happen only while Threadwell is open. Try the sample project in samples\\sample-repo.")
+
+doc.add_heading("15. Troubleshooting", level=1)
 table(["Problem", "Cause and fix"], [
     ["SmartScreen blocks the installer", "The installer is unsigned. Click More info, then Run anyway, for the file you trust."],
     ["Threadwell says it cannot find a workspace", "The folder was moved or renamed. Open the workspace again from its new location."],
@@ -384,14 +400,14 @@ table(["Problem", "Cause and fix"], [
 ], widths=[6, 10])
 
 # ---------------------------------------------------------------- 14
-doc.add_heading("15. Where your data lives", level=1)
+doc.add_heading("16. Where your data lives", level=1)
 bullets([
     "Your workspace folder contains threadwell.db (all notes, tasks, meetings and settings), plus the files that go with the database: threadwell.db-wal and threadwell.db-shm while the app is open.",
     "Do not edit those files by hand, and do not copy the folder while Threadwell is open. Use Create backup instead.",
     "Threadwell keeps only one small file outside your workspace: it remembers which workspace to reopen.",
 ])
 
-doc.add_heading("16. Delete a workspace", level=1)
+doc.add_heading("17. Delete a workspace", level=1)
 para("Threadwell has no delete button for workspaces. A workspace is a folder, so you delete the folder. This is permanent.")
 steps([
     "Close Threadwell completely, including from the system tray.",
