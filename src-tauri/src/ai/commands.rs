@@ -282,6 +282,15 @@ struct Retrieval {
 
 /// Runs retrieval for one chat turn. Query embedding happens without the workspace lock. If
 /// embedding fails, the turn falls back to keyword search and says so in the prompt.
+/// For a linked source file, names the section that matches the question, so the citation can
+/// say which lines it came from. Notes are left unchanged.
+pub(crate) fn label_section(conn: &Connection, hit: &mut knowledge::Retrieved, question: &str) {
+    if let Ok(Some(section)) = knowledge::source_section(conn, &hit.page_id, question) {
+        hit.title = format!("{} · {section}", hit.title);
+        hit.section = Some(section);
+    }
+}
+
 fn retrieve_for_turn(job: &ChatJob, active: &SharedActive) -> Retrieval {
     let mut mode = job.retrieval.mode;
     let mut note = None;
@@ -304,7 +313,7 @@ fn retrieve_for_turn(job: &ChatJob, active: &SharedActive) -> Retrieval {
         if a.info.id != job.ws {
             return Ok(Vec::new());
         }
-        knowledge::retrieve(
+        let mut found = knowledge::retrieve(
             &a.conn,
             &job.ws,
             &job.message,
@@ -313,12 +322,16 @@ fn retrieve_for_turn(job: &ChatJob, active: &SharedActive) -> Retrieval {
             mode,
             job.retrieval.weights,
             RETRIEVAL_LIMIT,
-        )
+        )?;
+        for hit in &mut found {
+            label_section(&a.conn, hit, &job.message);
+        }
+        Ok(found)
     })
     .unwrap_or_default();
     let mut seeds: Vec<Source> = hits
         .iter()
-        .map(|h| Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone() })
+        .map(|h| Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone(), section: h.section.clone() })
         .collect();
     // Other workspaces are searched by keyword only, each on its own read-only connection.
     for entry in &job.extra {
@@ -331,7 +344,8 @@ fn retrieve_for_turn(job: &ChatJob, active: &SharedActive) -> Retrieval {
             .unwrap_or_default();
         for mut hit in found {
             hit.title = format!("[Workspace: {}] {}", entry.name, hit.title);
-            seeds.push(Source { kind: "remote_page".into(), id: hit.page_id.clone(), title: hit.title.clone() });
+            label_section(&conn, &mut hit, &job.message);
+            seeds.push(Source { kind: "remote_page".into(), id: hit.page_id.clone(), title: hit.title.clone(), section: hit.section.clone() });
             hits.push(hit);
         }
     }

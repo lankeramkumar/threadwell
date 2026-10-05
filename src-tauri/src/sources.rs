@@ -22,7 +22,7 @@ use tauri::State;
 use crate::commands::{with_active, AppState};
 use crate::error::{validation, AppError, AppResult};
 use crate::workspace::Active;
-use crate::{documents, markdown, pages, util};
+use crate::{documents, markdown, pages, transfer, util};
 
 /// Source and configuration files, kept as code blocks labelled with their extension.
 const CODE_EXTS: &[&str] = &[
@@ -261,13 +261,34 @@ fn utf8(bytes: &[u8]) -> AppResult<String> {
     String::from_utf8(bytes.to_vec()).map_err(|_| AppError::Validation("The file is not UTF-8 text".into()))
 }
 
-/// A whole file as one code block, labelled with its extension.
+/// Lines per section of a source file. Each section gets a heading such as "Lines 41–80", so an
+/// answer can say which lines it came from.
+pub const SECTION_LINES: usize = 40;
+
+/// A file as code blocks, one per section of `SECTION_LINES` lines, each under a "Lines a–b" heading.
 fn code_document(text: &str, language: &str) -> Value {
-    let mut block = json!({ "type": "codeBlock", "attrs": { "language": language } });
-    if !text.is_empty() {
-        block["content"] = json!([{ "type": "text", "text": text }]);
+    let lines: Vec<&str> = text.lines().collect();
+    let mut blocks = Vec::new();
+    for (index, window) in lines.chunks(SECTION_LINES).enumerate() {
+        let first = index * SECTION_LINES + 1;
+        let last = first + window.len() - 1;
+        blocks.push(json!({
+            "type": "heading",
+            "attrs": { "level": 3 },
+            "content": [{ "type": "text", "text": format!("Lines {first}–{last}") }]
+        }));
+        let mut block = json!({ "type": "codeBlock", "attrs": { "language": language } });
+        let code = window.join("
+");
+        if !code.is_empty() {
+            block["content"] = json!([{ "type": "text", "text": code }]);
+        }
+        blocks.push(block);
     }
-    json!({ "type": "doc", "content": [block] })
+    if blocks.is_empty() {
+        blocks.push(json!({ "type": "codeBlock", "attrs": { "language": language } }));
+    }
+    json!({ "type": "doc", "content": blocks })
 }
 
 // ---------------------------------------------------------------------------
@@ -527,7 +548,13 @@ pub async fn sources_list(state: State<'_, AppState>) -> AppResult<Vec<SourceInf
 /// Links a folder and syncs it once. The folder is only read.
 #[tauri::command]
 pub async fn sources_add(state: State<'_, AppState>, path: String) -> AppResult<SourceInfo> {
-    let root = util::validate_abs_path(&path)?;
+    link_path(&state.active, &path)
+}
+
+/// Links a folder and syncs it once. Shared by the Sources view, drag and drop, and new workspaces
+/// that include the sample project.
+pub fn link_path(active: &Arc<Mutex<Option<Active>>>, path: &str) -> AppResult<SourceInfo> {
+    let root = util::validate_abs_path(path)?;
     if !root.is_dir() {
         return validation("Choose a folder that exists");
     }
@@ -540,7 +567,7 @@ pub async fn sources_add(state: State<'_, AppState>, path: String) -> AppResult<
         .chars()
         .take(120)
         .collect();
-    let id = with_active(&state.active, |a| {
+    let id = with_active(active, |a| {
         let duplicate: i64 = a.conn.query_row(
             "SELECT COUNT(*) FROM sources WHERE workspace_id = ?1 AND root_path = ?2",
             params![a.info.id, canonical],
@@ -556,13 +583,53 @@ pub async fn sources_add(state: State<'_, AppState>, path: String) -> AppResult<
         )?;
         Ok(id)
     })?;
-    sync_source(&state.active, &id)?;
-    with_active(&state.active, |a| {
+    sync_source(active, &id)?;
+    with_active(active, |a| {
         info_rows(&a.conn, &a.info.id)?
             .into_iter()
             .find(|s| s.id == id)
             .ok_or(AppError::NotFound("Source".into()))
     })
+}
+
+/// What a drop did with each dropped path.
+#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DropReport {
+    pub linked: Vec<String>,
+    pub imported: Vec<String>,
+    pub skipped: Vec<String>,
+}
+
+/// Handles files and folders dropped on the window. A folder is linked as a source. A Markdown or
+/// text file is imported as a note. Other files are reported, with the way to bring them in.
+#[tauri::command]
+pub async fn sources_drop(state: State<'_, AppState>, paths: Vec<String>) -> AppResult<DropReport> {
+    let mut report = DropReport::default();
+    for path in paths {
+        let candidate = PathBuf::from(&path);
+        let name = candidate.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.clone());
+        if candidate.is_dir() {
+            match link_path(&state.active, &path) {
+                Ok(source) => report.linked.push(source.name),
+                Err(error) => report.skipped.push(format!("{name}: {error}")),
+            }
+            continue;
+        }
+        let ext = extension(&candidate);
+        if candidate.is_file() && matches!(ext.as_str(), "md" | "markdown" | "txt") {
+            let imported = with_active(&state.active, |a| transfer::import_markdown(&a.conn, &a.info.id, &candidate, None));
+            match imported {
+                Ok(page) => report.imported.push(page.title),
+                Err(error) => report.skipped.push(format!("{name}: {error}")),
+            }
+        } else {
+            report.skipped.push(format!(
+                "{name}: drop the folder that contains it to link it, or a Markdown or text file to import it as a note."
+            ));
+        }
+    }
+    Ok(report)
 }
 
 #[tauri::command]
@@ -593,7 +660,7 @@ pub async fn sources_remove(state: State<'_, AppState>, id: String) -> AppResult
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::workspace;
+    use crate::{knowledge, workspace};
 
     fn write(path: &Path, text: &str) {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -693,6 +760,57 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn code_is_split_into_labelled_line_sections() {
+        let text: String = (1..=50).map(|i| format!("line {i}
+")).collect();
+        let doc = code_document(&text, "rust");
+        let headings: Vec<String> = doc["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|b| b["type"] == "heading")
+            .map(|b| b["content"][0]["text"].as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(headings, vec!["Lines 1–40".to_string(), "Lines 41–50".to_string()]);
+    }
+
+    #[test]
+    fn a_question_is_matched_to_the_section_that_contains_its_terms() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("repo");
+        let mut body: Vec<String> = (1..=100).map(|i| format!("let filler_{i} = {i};")).collect();
+        body[69] = "fn reconcile_ledger(entries: &[Entry]) -> Total { sum(entries) }".to_string();
+        write(&repo.join("ledger.rs"), &body.join("
+"));
+        let active = shared(&dir.path().join("ws"));
+        let source = add_source(&active, &repo);
+        sync_source(&active, &source).unwrap();
+        with_active(&active, |a| {
+            let page_id: String = a
+                .conn
+                .query_row("SELECT id FROM pages WHERE source_path = 'ledger.rs'", [], |r| r.get(0))
+                .unwrap();
+            let section = knowledge::source_section(&a.conn, &page_id, "how is the ledger reconciled?").unwrap();
+            assert_eq!(section.as_deref(), Some("Lines 41–80"), "line 70 is in the second section");
+            let note_section = knowledge::source_section(&a.conn, &page_id, "something unrelated entirely");
+            assert_eq!(note_section.unwrap(), None);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn the_sample_project_is_written_once_and_never_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = crate::sample::write_project(dir.path()).unwrap();
+        assert!(project.join("src/charge.rs").is_file());
+        assert!(project.join("docs/decisions.md").is_file());
+        std::fs::write(project.join("src/charge.rs"), "edited by the user").unwrap();
+        crate::sample::write_project(dir.path()).unwrap();
+        assert_eq!(std::fs::read_to_string(project.join("src/charge.rs")).unwrap(), "edited by the user");
     }
 
     #[test]

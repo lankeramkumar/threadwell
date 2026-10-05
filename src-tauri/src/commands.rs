@@ -119,7 +119,15 @@ pub async fn create_workspace(
 ) -> AppResult<WorkspaceInfo> {
     let root = validate_abs_path(&path)?;
     let active = workspace::create(&root, &name, with_sample)?;
-    Ok(install(&state, active))
+    let info = install(&state, active);
+    if with_sample {
+        // The sample project is linked after the workspace opens. If that fails, the workspace is
+        // still created, and the user can link the folder from Sources.
+        if let Ok(dir) = crate::sample::write_project(&root) {
+            let _ = crate::sources::link_path(&state.active, &dir.display().to_string());
+        }
+    }
+    Ok(info)
 }
 
 #[tauri::command]

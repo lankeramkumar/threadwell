@@ -223,7 +223,7 @@ fn eval_live() {
         let hybrid_top: Vec<String> = retrieved.iter().take(3).map(|h| h.title.clone()).collect();
         let seeds: Vec<Source> = retrieved
             .iter()
-            .map(|h| Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone() })
+            .map(|h| Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone(), section: None })
             .collect();
 
         let system = agent::system_prompt(None, Some(&retrieved_block(&retrieved)));

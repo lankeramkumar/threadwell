@@ -208,6 +208,8 @@ pub struct Citation {
     pub kind: String,
     pub id: String,
     pub title: String,
+    /// The section of a linked file the answer was drawn from, when there is one.
+    pub section: Option<String>,
 }
 
 /// Replaces `[cite:kind:id]` tokens with numbered markers. Tokens that do not match a source
@@ -238,6 +240,7 @@ pub fn resolve_citations(content: &str, sources: &[Source]) -> (String, Vec<Cita
                             kind: source.kind.clone(),
                             id: source.id.clone(),
                             title: source.title.clone(),
+                            section: source.section.clone(),
                         });
                         n
                     }
@@ -257,7 +260,7 @@ mod tests {
     use super::*;
 
     fn source(kind: &str, id: &str, title: &str) -> Source {
-        Source { kind: kind.into(), id: id.into(), title: title.into() }
+        Source { kind: kind.into(), id: id.into(), title: title.into(), section: None }
     }
 
     #[test]

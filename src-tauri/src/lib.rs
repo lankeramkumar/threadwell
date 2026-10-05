@@ -96,6 +96,7 @@ pub fn run() {
             sources::sources_add,
             sources::sources_sync,
             sources::sources_remove,
+            sources::sources_drop,
             commands::list_pages,
             commands::list_trash,
             commands::get_page,

@@ -465,11 +465,14 @@ fn live_ollama_answers_from_linked_source_code_with_a_file_citation() {
     let a = guard.as_ref().unwrap();
     let question = "How are duplicate charges prevented?";
     let weights = crate::knowledge::Weights { lexical: 1.0, vector: 0.0 };
-    let hits = crate::knowledge::retrieve(&a.conn, &a.info.id, question, None, "", crate::knowledge::Mode::Lexical, weights, 6).unwrap();
+    let mut hits = crate::knowledge::retrieve(&a.conn, &a.info.id, question, None, "", crate::knowledge::Mode::Lexical, weights, 6).unwrap();
+    for hit in &mut hits {
+        super::commands::label_section(&a.conn, hit, question);
+    }
     let block = super::commands::retrieved_block(&hits);
     let seeds: Vec<tools::Source> = hits
         .iter()
-        .map(|h| tools::Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone() })
+        .map(|h| tools::Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone(), section: h.section.clone() })
         .collect();
     let tools_schema = tools::schemas();
     let flag = AtomicBool::new(false);
@@ -487,7 +490,8 @@ fn live_ollama_answers_from_linked_source_code_with_a_file_citation() {
     println!("LIVE answer: {clean}");
     println!("LIVE citations: {citations:?}");
     assert!(clean.to_lowercase().contains("idempoten"), "answer did not mention the idempotency key");
-    assert!(citations.iter().any(|c| c.title == "src/charge.rs"), "answer did not cite the linked file");
+    assert!(citations.iter().any(|c| c.title.starts_with("src/charge.rs")), "answer did not cite the linked file");
+    println!("LIVE sections: {:?}", citations.iter().map(|c| c.section.clone()).collect::<Vec<_>>());
 }
 
 #[test]
@@ -554,7 +558,7 @@ fn graph_writer_abstains_without_citing_when_research_finds_nothing() {
 fn graph_action_path_records_a_proposal_that_is_not_applied() {
     let f = fixture();
     let page = page_with(&f, "Launch plan", "## Plan\n\nShip in March.");
-    let seed = vec![tools::Source { kind: "page".into(), id: page.id.clone(), title: page.title.clone() }];
+    let seed = vec![tools::Source { kind: "page".into(), id: page.id.clone(), title: page.title.clone(), section: None }];
     let replies = vec![
         once("{\"needs_action\": true}"),
         text_line("Launch plan says ship in March."),

@@ -136,6 +136,35 @@ pub fn reindex_page(conn: &Connection, ws: &str, page_id: &str, body: &Value) ->
     Ok(())
 }
 
+/// The section of a linked source file that best matches the question: the heading of the chunk
+/// containing the most question terms. Returns None for notes, and when no section matches.
+pub fn source_section(conn: &Connection, page_id: &str, question: &str) -> AppResult<Option<String>> {
+    let is_source: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pages WHERE id = ?1 AND source_id IS NOT NULL",
+        params![page_id],
+        |row| row.get(0),
+    )?;
+    if is_source == 0 {
+        return Ok(None);
+    }
+    let terms: Vec<String> = search::keyword_terms(question).into_iter().map(|t| t.to_lowercase()).collect();
+    if terms.is_empty() {
+        return Ok(None);
+    }
+    let mut stmt = conn.prepare("SELECT heading, text FROM page_chunks WHERE page_id = ?1 ORDER BY ord")?;
+    let rows = stmt.query_map(params![page_id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?;
+    let mut best: Option<(usize, String)> = None;
+    for row in rows {
+        let (heading, text) = row?;
+        let lowered = text.to_lowercase();
+        let score: usize = terms.iter().map(|t| lowered.matches(t.as_str()).count()).sum();
+        if score > 0 && !heading.trim().is_empty() && best.as_ref().map_or(true, |(s, _)| score > *s) {
+            best = Some((score, heading));
+        }
+    }
+    Ok(best.map(|(_, heading)| heading))
+}
+
 pub fn is_excluded(conn: &Connection, page_id: &str) -> AppResult<bool> {
     let excluded: i64 = conn.query_row(
         "SELECT ai_excluded FROM pages WHERE id = ?1",
@@ -301,6 +330,8 @@ pub struct Retrieved {
     pub score: f32,
     pub lexical: f32,
     pub vector: f32,
+    /// For linked source files: the section (such as "Lines 41–80") that best matches the question.
+    pub section: Option<String>,
 }
 
 /// Ranks pages for a question. Lexical scores come from FTS5 BM25 and vector scores from
@@ -371,7 +402,7 @@ pub fn retrieve(
                 (title, vectors.get(&id).map(|v| v.0.clone()).unwrap_or_default())
             }
         };
-        results.push(Retrieved { page_id: id, title, snippet, score, lexical: lex_norm, vector: vec_norm });
+        results.push(Retrieved { page_id: id, title, snippet, score, lexical: lex_norm, vector: vec_norm, section: None });
     }
     results.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.page_id.cmp(&b.page_id)));
     results.truncate(limit);

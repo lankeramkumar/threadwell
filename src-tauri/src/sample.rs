@@ -125,3 +125,29 @@ pub fn seed(conn: &Connection, ws: &str) -> AppResult<()> {
     )?;
     Ok(())
 }
+
+/// The sample project, compiled into the app so that a new workspace can include it without the
+/// repository. It is written into the workspace folder and linked as a source.
+const SAMPLE_PROJECT: &[(&str, &str)] = &[
+    ("README.md", include_str!("../../samples/sample-repo/README.md")),
+    ("src/charge.rs", include_str!("../../samples/sample-repo/src/charge.rs")),
+    ("src/refund.rs", include_str!("../../samples/sample-repo/src/refund.rs")),
+    ("src/retry.py", include_str!("../../samples/sample-repo/src/retry.py")),
+    ("docs/decisions.md", include_str!("../../samples/sample-repo/docs/decisions.md")),
+    ("tests/test_retry.py", include_str!("../../samples/sample-repo/tests/test_retry.py")),
+];
+
+/// Writes the sample project into `<root>/sample-project`. Existing files are never overwritten.
+pub fn write_project(root: &std::path::Path) -> AppResult<std::path::PathBuf> {
+    let dir = root.join("sample-project");
+    for (relative, text) in SAMPLE_PROJECT {
+        let path = dir.join(relative);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        if !path.exists() {
+            std::fs::write(&path, text)?;
+        }
+    }
+    Ok(dir)
+}

@@ -29,6 +29,8 @@ pub struct Source {
     pub kind: String,
     pub id: String,
     pub title: String,
+    /// The part of a linked file that was read, such as "Lines 41–80".
+    pub section: Option<String>,
 }
 
 impl Source {
@@ -227,7 +229,7 @@ fn search_workspace(env: &ToolEnv, args: &SearchArgs) -> Result<ToolOutput, Tool
         .collect();
     let sources: Vec<Source> = hits
         .iter()
-        .map(|h| Source { kind: h.kind.to_string(), id: h.id.clone(), title: h.title.clone() })
+        .map(|h| Source { kind: h.kind.to_string(), id: h.id.clone(), title: h.title.clone(), section: None })
         .collect();
     if hits.is_empty() {
         return Ok(success("No matching pages or tasks.".into(), "0 results".into(), sources));
@@ -247,7 +249,7 @@ fn read_page(env: &ToolEnv, args: &ReadPageArgs) -> Result<ToolOutput, ToolOutpu
         return Err(failure("excluded", "This page is excluded from the assistant"));
     }
     let text = truncate(&markdown::plain_text(&page.body), MAX_PAGE_TEXT_CHARS);
-    let source = Source { kind: "page".into(), id: page.id.clone(), title: page.title.clone() };
+    let source = Source { kind: "page".into(), id: page.id.clone(), title: page.title.clone(), section: None };
     let summary = format!("read \"{}\"", page.title);
     Ok(success(untrusted(&format!("page:{}", page.id), &page.title, &text), summary, vec![source]))
 }
@@ -265,7 +267,7 @@ fn list_tasks(env: &ToolEnv, args: &ListTasksArgs) -> Result<ToolOutput, ToolOut
         .collect();
     let sources: Vec<Source> = matching
         .iter()
-        .map(|t| Source { kind: "task".into(), id: t.id.clone(), title: t.title.clone() })
+        .map(|t| Source { kind: "task".into(), id: t.id.clone(), title: t.title.clone(), section: None })
         .collect();
     let lines: Vec<String> = matching
         .iter()
