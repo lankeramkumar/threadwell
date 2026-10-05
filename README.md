@@ -64,10 +64,12 @@ not supported yet.
    click **Create workspace**.
 2. **Look around.** The left sidebar has your pages tree, Tasks, Meetings, Recipes, Trash and Settings. The centre is
    where you work. The right panel is the assistant.
-3. **Import a sample page.** Open **Settings** → **Import a Markdown file** and choose
-   `samples/import-project-plan.md` from the folder you cloned or downloaded the sample from.
+3. **Import the demo notes.** Open **Settings** → **Import a folder of notes** → **Choose folder…** and select
+   `samples/demo-project`. Tick **Select all importable** and click **Import 40 notes**. The demo has ten Markdown, text,
+   Word and PDF notes on each of ten topics, so you can try search and the assistant on real-looking material.
 4. **Try a meeting.** Open **Meetings** → **Import a transcript** → **Import file…** and choose
-   `samples/meeting-kickoff.txt`. Then click **Extract notes and actions** (this needs the AI model, see below).
+   `samples/demo-project/meetings-vtt/meeting-food-safety-audit.vtt`. Then click **Extract notes and actions** (this
+   needs the AI model, see below).
 5. **Make a backup.** Open **Settings** → **Create backup**, and pick a folder outside your workspace.
 
 The step-by-step [Word user guide](docs/Threadwell-User-Guide.docx) walks through every feature with the exact button
@@ -190,6 +192,18 @@ acting on an answer.
 
 Do not edit `threadwell.db` by hand, and do not copy the workspace folder while Threadwell is open. Use **Create backup**.
 
+### Deleting a workspace
+
+Threadwell has no delete button for workspaces, because a workspace is a folder. To remove one:
+
+1. Close Threadwell completely, including from the system tray. Back up first if you might need the data.
+2. Delete the workspace folder in File Explorer. Deleting it is permanent, and it removes `threadwell.db`, its `-wal`
+   and `-shm` files, and the `attachments` folder.
+3. Optional: delete `%APPDATA%\dev.threadwell.app\last-workspace.txt`. Threadwell remembers the last workspace there.
+   If the folder is gone, the app shows the first-run screen anyway.
+
+Uninstalling Threadwell does not delete workspaces.
+
 ## Troubleshooting
 
 | Problem                                     | What to do                                                                              |
@@ -239,6 +253,7 @@ Threadwell implements all six milestones in its brief. Details are in [docs/STAT
 - **Platform:** Windows 11 only, verified on one machine.
 - **Installers:** unsigned, and not yet tested on a clean machine.
 - **Audio transcription:** not available. Import text transcripts instead.
+- **CSV and OneNote (`.one`) files:** not supported for import. Scanned PDFs have no text and cannot be imported.
 - **Scheduled recipes:** run only while the app is open.
 - **Memory:** about 336 MiB across the app and its WebView2 processes when idle, above the 250 MiB target.
 - **Accessibility:** reviewed by inspection, not tested with assistive technology.
