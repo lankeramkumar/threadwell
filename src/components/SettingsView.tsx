@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { api } from '../lib/api';
 import { AiSettings } from './AiSettings';
+import { FolderImport } from './FolderImport';
 import { AiRetrieval } from './AiRetrieval';
 import { RunHistory } from './RunHistory';
 import type { ThemeChoice } from '../lib/theme';
@@ -10,13 +11,14 @@ import type { WorkspaceInfo } from '../lib/types';
 interface Props {
   workspace: WorkspaceInfo;
   onOpenPage: (id: string) => void;
+  onPagesChanged: () => void;
   onThemeChange: (theme: ThemeChoice) => void;
   onRestored: (workspace: WorkspaceInfo) => void;
   onError: (error: unknown) => void;
 }
 
 /** Workspace settings, import/export, backup and restore. */
-export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored, onError }: Props) {
+export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored, onPagesChanged, onError }: Props) {
   const [theme, setTheme] = useState<ThemeChoice>('system');
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -158,6 +160,8 @@ export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored,
           </button>
         </div>
       </section>
+
+      <FolderImport onImported={onPagesChanged} onError={onError} />
 
       <section aria-labelledby="backup-heading" className="panel">
         <h2 id="backup-heading">Backup and restore</h2>

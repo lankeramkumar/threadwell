@@ -4,8 +4,10 @@
 mod ai;
 mod commands;
 mod db;
+mod documents;
 mod error;
 mod knowledge;
+mod local_import;
 mod markdown;
 mod meetings;
 mod recipes;
@@ -48,6 +50,8 @@ pub fn run() {
             ai::commands::ai_set_page_excluded,
             ai::commands::ai_index_status,
             ai::commands::ai_index_start,
+            local_import::local_scan_folder,
+            local_import::local_import_folder,
             meetings::meetings_list,
             meetings::meetings_get,
             meetings::meetings_import_text,

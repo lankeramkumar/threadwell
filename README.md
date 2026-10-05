@@ -104,6 +104,9 @@ words highlighted. Press **Ctrl+K** for the command palette, which lists pages a
 
 - **Import:** _Settings_ → _Import and export_ → **Import a Markdown file**. A `.md`, `.markdown` or `.txt` file of up to
   5 MB becomes a new page. A first line starting with a single `#` becomes the title. Your original file is not changed.
+- **Import a folder of notes:** _Settings_ → **Choose folder…**. Threadwell lists the Markdown, text, Word (`.docx`) and
+  text-based PDF files in the folder. Tick the ones you want and click **Import**. Your files are never changed, and
+  unchanged files are skipped on later imports. Scanned PDFs and OneNote (`.one`) files are not supported.
 - **Export pages:** _Settings_ → **Export all pages to Markdown**, then choose an empty folder. Existing files are never
   overwritten.
 - **Export tasks:** _Settings_ → **Export tasks to CSV**.

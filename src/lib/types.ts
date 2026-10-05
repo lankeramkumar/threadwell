@@ -327,3 +327,24 @@ export interface RecipeDoneEvent {
   proposalId: string | null;
   message: string | null;
 }
+
+// ---- folder import ----------------------------------------------------------
+
+export interface ScanItem {
+  relativePath: string;
+  size: number;
+  /** new, imported (unchanged since import), changed, unsupported or too_large */
+  status: 'new' | 'imported' | 'changed' | 'unsupported' | 'too_large';
+}
+
+export interface ScanReport {
+  items: ScanItem[];
+  truncated: boolean;
+}
+
+export interface ImportReport {
+  imported: number;
+  skipped: number;
+  failed: { relativePath: string; reason: string }[];
+  pageIds: string[];
+}

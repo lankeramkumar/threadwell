@@ -249,6 +249,7 @@ export function App() {
           <SettingsView
             workspace={workspace}
             onOpenPage={openPage}
+            onPagesChanged={() => void refreshLists().catch(reportError)}
             onThemeChange={applyTheme}
             onRestored={(info) => void enterWorkspace(info)}
             onError={reportError}

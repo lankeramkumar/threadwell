@@ -1,6 +1,8 @@
 // Typed wrappers around Tauri commands. Components call these, never `invoke` directly.
 import { invoke } from '@tauri-apps/api/core';
 import type {
+  ImportReport,
+  ScanReport,
   IndexStatus,
   Meeting,
   MeetingDetail,
@@ -102,4 +104,8 @@ export const api = {
   recipesDelete: (id: string) => invoke<void>('recipes_delete', { id }),
   recipeRunsList: (recipeId: string) => invoke<RecipeRun[]>('recipe_runs_list', { recipeId }),
   recipeRunNow: (recipeId: string) => invoke<string>('recipe_run_now', { recipeId }),
+
+  localScanFolder: (path: string) => invoke<ScanReport>('local_scan_folder', { path }),
+  localImportFolder: (path: string, relativePaths: string[], parentId: string | null) =>
+    invoke<ImportReport>('local_import_folder', { path, relativePaths, parentId }),
 };
