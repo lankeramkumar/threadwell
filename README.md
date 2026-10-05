@@ -8,7 +8,8 @@ not done yet. The design is in [docs/architecture.md](docs/architecture.md).
 
 ## Status
 
-Milestone 1 (desktop foundation) is implemented. Milestones 2 through 6 are not started. Do not treat this build as the
+Milestone 1 (desktop foundation) is implemented. Milestone 2 (AI assistance) is implemented with a local Ollama
+adapter; cloud providers are not yet built. Milestones 3 through 6 are not started. Do not treat this build as the
 complete product.
 
 ### Milestone 1: desktop foundation
@@ -38,9 +39,33 @@ complete product.
 - [ ] Permanent deletion from trash (intentionally absent in this build)
 - [ ] Measured performance (see "Performance" below)
 
+### Milestone 2: AI assistance (local Ollama)
+
+- [x] Local provider adapter for Ollama (`/api/chat` streaming, `/api/tags` readiness check)
+- [x] Endpoint allow-list: only loopback addresses unless remote endpoints are switched on; remote requires https
+- [x] Streaming conversation with saved history, reopenable from the conversation list
+- [x] Retrieval before generation: the question is searched in the workspace and the hits are given to the model as untrusted sources
+- [x] Tools for the model: `search_workspace`, `read_page`, `list_tasks` (read) and `propose_create_page`, `propose_edit_page`, `propose_task_changes` (record a suggestion only). There is no delete, SQL or shell tool
+- [x] Bounded loop: at most 6 steps, 3 tool calls per step, 2 recoverable tool failures, 5 proposals per run
+- [x] Citations: the model cites with tokens; the backend keeps only tokens that match a source retrieved in that run, numbers them, and removes the rest
+- [x] Change proposals with line-diff preview; approve, reject, or undo
+- [x] Apply is one transaction, checks the revision the suggestion was based on, and is idempotent; stale suggestions are marked stale, never written over
+- [x] Undo restores previous content only if nothing changed since the apply
+- [x] Cancellation stops streaming and tool steps; pending suggestions are never applied by a cancelled run
+- [x] Page actions on a selection: rewrite, summarize, expand, translate. Accept replaces the selection only if it still matches what was sent
+- [x] Number check on page actions: numbers dropped or added in the suggestion are listed before acceptance
+- [x] Run history with status, steps, duration and token counts; per-run tool trace
+- [x] Keys: none needed for Ollama. The app stores no secrets in this milestone
+- [ ] Cloud provider adapter (planned as the next adapter; not built)
+- [ ] OS credential store for cloud API keys (needed only with a cloud adapter)
+- [ ] Measured evaluation. The live test checks one answer; the 40-case dataset and metrics are milestone 3
+- [ ] Automatic answer-support checking. Citations show which source the model used; they do not prove the claim is supported
+- [ ] Cancellation granularity: a stop takes effect at the next streamed line or tool step. A stalled model is interrupted by its 180-second timeout
+- [ ] Live check for page actions (only the code path and unit tests are verified)
+- [ ] Conversation search and a side-by-side selected-context panel
+
 ### Later milestones (not started)
 
-- 2 AI assistance: provider configuration, streaming, retrieval with citations, reviewed proposals, undo
 - 3 Knowledge quality: semantic retrieval, evaluation dataset, trace viewer
 - 4 Meetings: transcript import, sourced summaries, audio import through a configured engine
 - 5 Recurring workflows: recipes, local scheduling, missed-run handling
@@ -55,6 +80,18 @@ automation, billing, always-on cloud agents. The sidebar and menus show no butto
 - Node.js 22 or newer and npm.
 - Rust stable (`rustup`), MSVC build tools (Visual Studio Build Tools with the C++ workload and a Windows SDK).
 - WebView2 runtime (ships with Windows 11).
+
+## Assistant setup (local model)
+
+Threadwell does not bundle model weights or start a model server. Install a local server, then pull a model:
+
+1. Install [Ollama](https://ollama.com). It runs on `http://127.0.0.1:11434` by default.
+2. Pull a model, for example `ollama pull qwen2.5:3b` (about 1.9 GB). Small models make more mistakes than larger
+   ones, so check answers against their sources.
+3. In Threadwell, open **Settings → AI assistance**, enter the model name, and choose **Save and check**.
+
+Nothing is sent to a model until you use the assistant. Remote servers are off by default. Turning them on sends your
+notes to that server, and only https is accepted.
 
 ## Setup
 
@@ -90,6 +127,18 @@ npm run check
 | `npm run test:rust`    | Backend tests (`cargo test`): migrations and newer-schema refusal, persistence across reopen, page revisions and conflicts, trash and restore, cycle prevention, link extraction, workspace isolation, task validation, search query building, Markdown round trip, export naming and CSV escaping, import rules, backup and restore round trip, tampered-backup and non-empty-restore rejection |
 
 CI (`.github/workflows/ci.yml`) runs the same steps on `windows-latest` for every push and pull request.
+
+### Live model check (not in the default run)
+
+Needs Ollama running with `qwen2.5:3b`. It asks a grounded question about a seeded page and checks the answer and its
+citation:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml live_ollama -- --ignored --nocapture
+```
+
+Last run on the build machine: passed, in about 49 seconds on CPU. The answer was grounded and cited the source page.
+The same model first answered without searching, which is why retrieval now runs before the first model call.
 
 ### Not automated
 
@@ -140,9 +189,10 @@ gzip (Tiptap and ProseMirror dominate). Lazy-loading the editor is the first can
 
 ## Verification
 
-Verified on Windows 11 Pro (build 26200) with Node 24, Rust 1.99 stable, and MSVC toolchain:
+Verified on Windows 11 Pro (build 26200) with Node 24, Rust 1.99 stable, and MSVC toolchain. Milestone 2 counts:
 
-- Rust: 40 tests pass with `cargo test`, no compiler warnings. One further ignored test measures search latency.
+- Rust: 75 tests pass with `cargo test`, including 34 assistant tests against a scripted Ollama server. Two are ignored by default: the search benchmark and the live Ollama check.
+- Frontend: 17 tests pass, including assistant panel states and diff rendering.
 - Frontend: typecheck, lint, Vitest (14 tests) and `vite build` pass.
 - Release build: `npm run tauri build` completes and produces the MSI and NSIS bundles listed above.
 - Release executable: launched on the build machine; it stayed alive and responsive with the window titled "Threadwell".

@@ -80,6 +80,39 @@ Pages store a Tiptap (ProseMirror) JSON document in `body_json`. Markdown is a c
 - Error messages to the UI carry a code and a safe message. Database and file details go to stderr only.
 - No secrets exist in milestone 1. There is no network code.
 
+## Assistant (milestone 2)
+
+```
+question ─► retrieve (lexical, OR over keywords) ─► prompt with untrusted sources
+                                                        │
+          ┌─────────────────────────────────────────────┘
+          ▼
+   provider (Ollama, streaming NDJSON)  ◄── cancel flag checked per line and per tool call
+          │ tool calls
+          ▼
+   tools: search / read / list (read-only) · propose_* (write a proposal row only)
+          │
+          ▼
+   proposals ── user Apply ─► one transaction, revision check ─► pages / tasks
+                            └ stale → status 'stale' (no write)
+                            └ Undo  → only if the item is still at its applied revision
+```
+
+- **Threads and locks.** A run starts on a worker thread. The workspace mutex is held only for database reads and
+  writes, never during generation. The client chooses the run id, so events cannot race the command response.
+- **Bounds.** `agent::MAX_STEPS` (6), `MAX_CALLS_PER_STEP` (3), `MAX_RECOVERABLE_FAILURES` (2),
+  `MAX_PROPOSALS_PER_RUN` (5). Each limit has a test.
+- **Citations.** The model writes `[cite:kind:id]`. `agent::resolve_citations` keeps only tokens that match a source
+  retrieved in this run, renumbers them, and counts what it removed.
+- **Untrusted content.** Pages, imports, search snippets and task text are wrapped in `<untrusted_content>` with
+  closing tags neutralized. The system prompt says that text is data.
+- **Transactions.** `db::Tx` is a `BEGIN IMMEDIATE` at top level and a savepoint when nested, so proposal apply
+  can call the page and task services and roll back as one unit.
+- **Failures.** Provider errors map to categories (`provider_unreachable`, `model_missing`, `provider_timeout`,
+  `tool_recovery_exhausted`, `step_limit`). Each run row keeps its category, steps and token counts.
+- **Endpoint policy.** `ai::config::validate_endpoint` allows loopback names only unless remote is enabled, and rejects
+  userinfo, paths, whitespace and lookalike hosts such as `127.0.0.1.evil.com`.
+
 ## Not in this milestone
 
 See the progress checklist in `README.md`. Milestone 2 will add provider adapters and the proposal and approval protocol. Those are designed to sit between the existing services and the UI, so they do not write to the database directly.
