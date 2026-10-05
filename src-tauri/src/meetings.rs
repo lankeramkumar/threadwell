@@ -810,3 +810,29 @@ mod tests {
         assert_eq!(list(&conn, &ws).unwrap().len(), 1);
     }
 }
+
+#[cfg(test)]
+mod sample_file_tests {
+    use super::*;
+
+    #[test]
+    fn sample_transcripts_parse_to_the_same_meeting() {
+        let txt = parse_transcript(include_str!("../../samples/meeting-kickoff.txt")).unwrap();
+        let vtt = parse_transcript(include_str!("../../samples/meeting-kickoff.vtt")).unwrap();
+        assert!(txt.len() >= 10, "text sample should have about a dozen lines");
+        assert_eq!(txt[0].speaker, "Maria");
+        assert_eq!(txt[0].start_ms, Some(5_000));
+        assert_eq!(vtt[0].speaker, "Maria");
+        assert_eq!(vtt[0].start_ms, Some(5_000));
+        assert!(vtt.len() >= 8);
+    }
+
+    #[test]
+    fn sample_markdown_imports_with_its_title() {
+        let mut doc = crate::markdown::from_markdown(include_str!("../../samples/import-project-plan.md"));
+        assert_eq!(crate::markdown::take_title(&mut doc).as_deref(), Some("Website Relaunch Plan"));
+        let text = crate::markdown::plain_text(&doc);
+        assert!(text.contains("Draft the new home page copy"));
+        assert!(text.contains("Priya"));
+    }
+}

@@ -1,0 +1,13 @@
+[00:00:05] Maria: Thanks everyone. Goal today is to agree on the launch plan for the website relaunch.
+[00:01:12] Tom: The design direction is approved. I need the final home page copy before I can finish the mockups.
+[00:02:40] Maria: I can draft the copy this week. I will have a first version by Friday, 17 October.
+[00:04:03] Priya: The redirect list is the risky part. We have about four hundred old URLs and nobody has exported them yet.
+[00:05:31] Maria: Priya, please export the URL list and send it to me by Monday.
+[00:06:10] Priya: Agreed. I will also write the redirect rules after the export.
+[00:08:22] Tom: Hosting. Did finance approve the budget?
+[00:08:50] Maria: Yes, the budget is approved. We cut hosting cost by about a third.
+[00:10:15] Priya: Who signs off on the final copy? We still have not decided that.
+[00:10:40] Maria: Not decided yet. I will ask the leadership team on Thursday.
+[00:12:05] Tom: Launch date. Can we commit to 15 November?
+[00:12:30] Maria: Let us call it a goal, not a commitment. It depends on copy sign-off.
+[00:13:55] Maria: Summary: copy draft by 17 October, URL export by Monday, sign-off owner to be decided Thursday.
