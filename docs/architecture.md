@@ -113,6 +113,42 @@ question ─► retrieve (lexical, OR over keywords) ─► prompt with untruste
 - **Endpoint policy.** `ai::config::validate_endpoint` allows loopback names only unless remote is enabled, and rejects
   userinfo, paths, whitespace and lookalike hosts such as `127.0.0.1.evil.com`.
 
+## Knowledge index (milestone 3)
+
+- **Chunks.** `knowledge::chunk_body` splits a page at headings, then at paragraphs once a chunk reaches 900 characters.
+  `reindex_page` runs inside the page save transaction. A chunk whose text is unchanged keeps its row and its embedding.
+- **Embeddings.** One row per chunk and model in `chunk_embeddings`. A row is valid only if its content hash matches the
+  chunk. Changing the embedding model leaves old rows in place and creates new ones.
+- **Retrieval.** `knowledge::retrieve` combines FTS5 BM25 (over OR-ed keywords) and cosine similarity. Each score is
+  normalized to 0–1 across the candidates before the weights apply. Search is brute force over the workspace's chunks.
+- **Exclusion.** `pages.ai_excluded` removes a page from every AI read path: retrieval, `read_page`, `propose_edit_page`,
+  page actions, and the open-page context. Tests cover each path.
+
+## Meetings (milestone 4)
+
+- A meeting is a page plus `meetings` and `meeting_segments` rows. Processing asks the model for JSON, validates it in
+  `meetings::validate_extraction`, and stores `meeting_claims`. Action items become one `task_changes` proposal.
+- Validation: every item needs segment numbers that exist, and must share a content word with the cited text. Due dates
+  must appear literally in the transcript.
+
+## Recipes and the scheduler (milestone 5)
+
+- `recipes::local_to_utc` converts wall-clock slots in the recipe's timezone. `recipe_runs` has a unique key on
+  `(recipe_id, scheduled_for)`, so a slot runs once. `due` considers only the most recent slot.
+- `start_scheduler` ticks every 30 seconds while the app is open. It claims due runs under the workspace lock, then
+  runs each model call without it. Results are draft proposals.
+
+## Migrations (milestone 3)
+
+Migration 0003 rebuilds `ai_runs` to add new run kinds. SQLite cannot change a `CHECK` constraint in place, so the
+migrator turns foreign-key enforcement off for that migration only (`db::FK_OFF_MIGRATIONS`), then checks for
+violations before commit.
+
+## Evaluation
+
+`ai::eval` runs the real retrieval and agent loop over `eval/cases.json` and writes `eval/reports/`. See `eval/README.md`
+for the gates, the results, and the limits.
+
 ## Not in this milestone
 
 See the progress checklist in `README.md`. Milestone 2 will add provider adapters and the proposal and approval protocol. Those are designed to sit between the existing services and the UI, so they do not write to the database directly.

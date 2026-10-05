@@ -8,9 +8,16 @@ not done yet. The design is in [docs/architecture.md](docs/architecture.md).
 
 ## Status
 
-Milestone 1 (desktop foundation) is implemented. Milestone 2 (AI assistance) is implemented with a local Ollama
-adapter; cloud providers are not yet built. Milestones 3 through 6 are not started. Do not treat this build as the
-complete product.
+All six milestones in `intent.md` are implemented in this build, with the limits listed under each one. Two results
+need to be read with care:
+
+- **The assistant does not meet its own quality gates.** On the held-out evaluation, four of nine gates fail, including
+  the injection gates. See [eval/README.md](eval/README.md). Treat the assistant as experimental.
+- **Several items cannot be verified here.** Audio transcription has no engine, scheduled runs need the app open, and
+  the installers are unsigned and were not tested on a clean machine.
+
+The brief asks that the product not be described as complete when only part of it is verified. Items below are marked
+as done only when the automated suite or a recorded measurement covers them.
 
 ### Milestone 1: desktop foundation
 
@@ -64,15 +71,61 @@ complete product.
 - [ ] Live check for page actions (only the code path and unit tests are verified)
 - [ ] Conversation search and a side-by-side selected-context panel
 
-### Later milestones (not started)
+### Milestone 3: knowledge quality
 
-- 3 Knowledge quality: semantic retrieval, evaluation dataset, trace viewer
-- 4 Meetings: transcript import, sourced summaries, audio import through a configured engine
-- 5 Recurring workflows: recipes, local scheduling, missed-run handling
-- 6 Release polish: accessibility review, performance report, signed packaging
+- [x] Semantic index: chunks by heading and size, embeddings through a local model (`nomic-embed-text` by default)
+- [x] Chunks keep their embedding when their text is unchanged; a changed paragraph is the only thing re-embedded
+- [x] Embeddings are keyed by model, so switching models re-embeds rather than mixing vector spaces
+- [x] Hybrid ranking: FTS5 BM25 and cosine, each normalized 0–1, with configurable weights; keyword-only mode
+- [x] Exclusion controls: pages marked "Exclude from AI" are never retrieved, read, or edited by the assistant
+- [x] Trashed and deleted pages never appear in retrieval
+- [x] Background indexer with progress events; one at a time; stops when the workspace changes
+- [x] Trace viewer: recent assistant runs with status, steps, time and token counts, and per-run tool traces
+- [x] Regression dataset: 40 synthetic cases (20 dev, 20 held-out) with thresholds committed before the held-out run
+- [x] Measured results reported against those gates, including the failures
+- [ ] Passing gates. Four held-out gates fail (see [eval/README.md](eval/README.md))
+- [ ] A corpus large enough to show a semantic benefit. The current one is too small and too easy for keywords to fail
+- [ ] Human rubric review of answers. Not done by anyone other than the author
+- [ ] Provider adapter tests for the embedding path beyond the scripted-server checks
+
+### Milestone 4: meeting knowledge
+
+- [x] Transcript import: pasted text, `.txt`, WebVTT and SRT, with timestamps and speakers where present
+- [x] Each meeting is a page (searchable, linkable) plus timestamped segments
+- [x] Extraction in JSON mode: summary, decisions, open questions, action items
+- [x] Every claim must cite segments that exist and share a content word with them; unsupported claims are dropped and counted
+- [x] Action items arrive as one reviewable proposal, with the source meeting page attached
+- [x] Due dates are kept only when the transcript states that exact date
+- [x] Explicit failure states: invalid model output, cancelled, model not installed
+- [ ] Audio import. The command exists and reports that no transcription engine is configured. No engine is bundled or configured
+- [ ] Live check of extraction quality. Covered by unit tests on validation only
+- [ ] Speaker identification beyond labels in the transcript
+
+### Milestone 5: recurring workflows
+
+- [x] Recipes: name, instructions, manual, daily or weekly schedule, explicit IANA timezone, enable and pause
+- [x] Scheduling is DST-aware: gap times move forward an hour, overlapping times use the first occurrence
+- [x] Each scheduled slot runs at most once, enforced by a unique key, including across restarts
+- [x] A missed schedule produces one catch-up run for the latest slot, never a burst
+- [x] Results are draft proposals; nothing is written to a page without review
+- [x] Run history with trigger, status, duration and a link to each draft
+- [x] Recipes run only while the app is open. The UI says so
+- [ ] A background service for running while the app is closed (not built, excluded by the brief for this release)
+- [ ] Live end-to-end test of a scheduled run with a real model. Covered by unit tests on scheduling and claims
+
+### Milestone 6: release polish
+
+- [x] Backup and restore verified by tests, including checksum tampering and non-empty destinations
+- [x] Secret scan over tracked files, run in `npm run check` and CI
+- [x] Acceptance map: each release gate linked to the test that enforces it, in [docs/acceptance.md](docs/acceptance.md)
+- [x] Measured: search p95 at 5,000 pages; installer sizes; cold start and idle memory (see Performance)
+- [ ] Keyboard and screen-reader review with assistive technology. Done by inspection only
+- [ ] Clean-machine install of the MSI and NSIS packages
+- [ ] Code signing. None; the installers are unsigned
+- [ ] Autosave latency measured in the UI
 
 Explicitly excluded from the initial release (per `intent.md`): collaboration, cloud sync, SSO, shell execution, browser
-automation, billing, always-on cloud agents. The sidebar and menus show no buttons for these.
+automation, billing, always-on cloud agents, and a background service. The sidebar and menus show no buttons for these.
 
 ## Requirements
 
@@ -184,8 +237,17 @@ Measured so far (Windows 11, release build of the Rust backend, warm disk cache,
 | Installer size                         | MSI 2.56 MiB, NSIS 1.92 MiB                                                                         | Unsigned. Requires WebView2 (preinstalled on Windows 11).                                                                                                  |
 | Bulk page creation                     | Not a target, but slow: 5,000 pages took about 190 s to create and update through the service layer | Each create and update runs its own transaction and index write. Batching bulk imports is the next step if this matters.                                   |
 
-Not yet measured: cold window time, autosave latency in the UI, idle memory. The frontend bundle is about 725 kB before
-gzip (Tiptap and ProseMirror dominate). Lazy-loading the editor is the first candidate if cold start misses its target.
+Measured in milestone 6 (Windows 11, release build, same machine as the model server; 3 launches):
+
+| Target in `intent.md`                  | Measured                                                                                                                                                   | Result                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Cold usable window within 3 s          | Window visible in 80 ms (median of 3); 452 ms on the first launch after install. "Usable" (first page rendered and interactive) is not measured separately | Met for the window; usability not timed                           |
+| Idle app memory below 250 MB           | App process alone: 26 MiB. Whole process tree (app plus 6 WebView2 processes), working set after 20 s idle: **336 MiB**                                    | **Not met** on working-set accounting. Private bytes not measured |
+| Autosave within 1 s after typing stops | Debounce is 800 ms in code. End-to-end time in the UI not measured                                                                                         | Not measured                                                      |
+| Installer size, published              | MSI 3.55 MiB, NSIS 2.68 MiB. Requires WebView2 (preinstalled on Windows 11)                                                                                | Reported                                                          |
+
+The bundle is about 725 kB before gzip, mostly the editor. Lazy-loading the editor is the next candidate if memory or
+startup needs to come down.
 
 ## Verification
 
