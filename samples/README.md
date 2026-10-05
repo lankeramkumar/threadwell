@@ -2,11 +2,11 @@
 
 These files are for trying Threadwell without your own data. They describe a fictional website relaunch.
 
-| File | Use it for |
-| --- | --- |
+| File                     | Use it for                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | `import-project-plan.md` | Settings → Import a Markdown file. Creates a page titled "Website Relaunch Plan" with headings, lists, checkboxes and a table. |
-| `meeting-kickoff.txt` | Meetings → Import file. A plain transcript with `[hh:mm:ss] Speaker: text` lines. |
-| `meeting-kickoff.vtt` | Meetings → Import file. The same meeting as WebVTT cues. Use one or the other, not both. |
+| `meeting-kickoff.txt`    | Meetings → Import file. A plain transcript with `[hh:mm:ss] Speaker: text` lines.                                              |
+| `meeting-kickoff.vtt`    | Meetings → Import file. The same meeting as WebVTT cues. Use one or the other, not both.                                       |
 
 ## Suggested first session (about 15 minutes)
 

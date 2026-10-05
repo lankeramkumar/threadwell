@@ -28,10 +28,10 @@ This page is a sample for **Import a Markdown file**. Import it from Settings, a
 
 ## Owners and dates
 
-| Area | Owner | Target |
-| --- | --- | --- |
-| Copy | Maria | 1 November |
-| Design | Tom | 25 October |
+| Area      | Owner | Target      |
+| --------- | ----- | ----------- |
+| Copy      | Maria | 1 November  |
+| Design    | Tom   | 25 October  |
 | Redirects | Priya | 10 November |
 
 > Note: the launch date is a goal, not a commitment. It depends on the copy sign-off.
