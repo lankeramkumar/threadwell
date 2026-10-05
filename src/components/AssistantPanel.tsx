@@ -265,7 +265,7 @@ export function AssistantPanel({ pageId, pageTitle, onOpenPage, onOpenTasks, onO
           </div>
         )}
         {proposals.map((p) => (
-          <ProposalCard key={p.id} proposal={p} onDecide={decide} />
+          <ProposalCardView key={p.id} proposal={p} onDecide={decide} />
         ))}
         {notice && (
           <p role="alert" className="inline-error">
@@ -366,7 +366,7 @@ function MessageView({
   );
 }
 
-function ProposalCard({
+function ProposalCardView({
   proposal,
   onDecide,
 }: {
@@ -404,6 +404,35 @@ function ProposalCard({
       </div>
     </section>
   );
+}
+
+/** A proposal card that applies, rejects or undoes on its own. Used outside the assistant panel. */
+export function ProposalCard({
+  proposal,
+  onChanged,
+  onError,
+}: {
+  proposal: Proposal;
+  onChanged: () => void;
+  onError: (error: unknown) => void;
+}) {
+  const [current, setCurrent] = useState(proposal);
+  useEffect(() => setCurrent(proposal), [proposal]);
+  const decide = async (_p: Proposal, action: 'apply' | 'reject' | 'undo') => {
+    try {
+      const updated =
+        action === 'apply'
+          ? await api.aiApplyProposal(current.id)
+          : action === 'reject'
+            ? await api.aiRejectProposal(current.id)
+            : await api.aiUndoProposal(current.id);
+      setCurrent(updated);
+      onChanged();
+    } catch (err) {
+      onError(err);
+    }
+  };
+  return <ProposalCardView proposal={current} onDecide={decide} />;
 }
 
 export function DiffView({ text }: { text: string }) {

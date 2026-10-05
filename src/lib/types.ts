@@ -25,6 +25,7 @@ export interface Page {
   body: JsonNode;
   revision: number;
   isFavorite: boolean;
+  aiExcluded: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,6 +117,10 @@ export interface AiConfig {
   endpoint: string;
   model: string;
   allowRemote: boolean;
+  embedModel: string;
+  retrievalMode: 'lexical' | 'hybrid';
+  weightLexical: number;
+  weightVector: number;
 }
 
 export type AiReadiness = 'ready' | 'model_missing' | 'unreachable' | 'not_configured';
@@ -218,4 +223,107 @@ export interface RunSummary {
   promptTokens: number | null;
   outputTokens: number | null;
   startedAt: string;
+}
+
+// ---- knowledge index ---------------------------------------------------------
+
+export interface IndexStatus {
+  embedded: number;
+  total: number;
+  model: string;
+  running: boolean;
+}
+
+export interface AiIndexEvent {
+  status: 'progress' | 'idle' | 'error';
+  embedded: number;
+  category: string | null;
+}
+
+// ---- meetings ---------------------------------------------------------------
+
+export interface Meeting {
+  id: string;
+  pageId: string;
+  title: string;
+  status: 'imported' | 'processing' | 'processed' | 'failed';
+  error: string | null;
+  createdAt: string;
+  segmentCount: number;
+  proposalId: string | null;
+}
+
+export interface MeetingSegment {
+  ord: number;
+  startMs: number | null;
+  speaker: string;
+  text: string;
+}
+
+export interface MeetingClaim {
+  ord: number;
+  kind: 'summary' | 'decision' | 'question' | 'action';
+  text: string;
+  segmentOrds: number[];
+  proposalId: string | null;
+}
+
+export interface MeetingDetail {
+  meeting: Meeting;
+  segments: MeetingSegment[];
+  claims: MeetingClaim[];
+}
+
+export interface MeetingDoneEvent {
+  meetingId: string;
+  runId: string;
+  status: 'processed' | 'failed' | 'cancelled';
+  message: string | null;
+  proposalId: string | null;
+}
+
+// ---- recipes ----------------------------------------------------------------
+
+export type ScheduleKind = 'manual' | 'daily' | 'weekly';
+
+export interface Recipe {
+  id: string;
+  name: string;
+  prompt: string;
+  scheduleKind: ScheduleKind;
+  scheduleTime: string | null;
+  weekday: number | null;
+  timezone: string;
+  enabled: boolean;
+  nextRunAt: string | null;
+  createdAt: string;
+}
+
+export interface RecipeInput {
+  name: string;
+  prompt: string;
+  scheduleKind: ScheduleKind;
+  scheduleTime: string | null;
+  weekday: number | null;
+  timezone: string;
+  enabled: boolean;
+}
+
+export interface RecipeRun {
+  id: string;
+  trigger: 'manual' | 'schedule' | 'catch_up';
+  scheduledFor: string | null;
+  status: 'running' | 'completed' | 'failed';
+  errorCategory: string | null;
+  message: string | null;
+  proposalId: string | null;
+  startedAt: string;
+  durationMs: number | null;
+}
+
+export interface RecipeDoneEvent {
+  recipeRunId: string;
+  status: 'completed' | 'failed';
+  proposalId: string | null;
+  message: string | null;
 }

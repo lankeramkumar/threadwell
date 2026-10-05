@@ -54,6 +54,7 @@ describe('App shell', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Test workspace' })).toBeTruthy());
     expect(screen.getAllByRole('button', { name: 'Atlas notes' }).length).toBeGreaterThan(0);
     expect(screen.queryByText(/sign in/i)).toBeNull();
-    expect(screen.queryByRole('button', { name: /meeting/i })).toBeNull();
+    // Excluded by design: accounts and billing are not part of this product.
+    expect(screen.queryByRole('button', { name: /billing|subscription|log in/i })).toBeNull();
   });
 });

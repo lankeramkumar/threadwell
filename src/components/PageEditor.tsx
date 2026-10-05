@@ -46,6 +46,7 @@ interface Props {
 export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed }: Props) {
   const [title, setTitle] = useState(page.title);
   const [favorite, setFavorite] = useState(page.isFavorite);
+  const [aiExcluded, setAiExcluded] = useState(page.aiExcluded);
   const [save, setSave] = useState<SaveState>({ kind: 'saved', at: page.updatedAt });
   const [backlinks, setBacklinks] = useState<PageSummary[]>([]);
   const [linkTarget, setLinkTarget] = useState('');
@@ -305,6 +306,19 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed }: Pr
           >
             {favorite ? 'Unfavorite' : 'Favorite'}
           </button>
+          <label className="checkbox small">
+            <input
+              type="checkbox"
+              checked={aiExcluded}
+              onChange={(e) =>
+                run(async () => {
+                  await api.aiSetPageExcluded(page.id, e.target.checked);
+                  setAiExcluded(e.target.checked);
+                })
+              }
+            />
+            Exclude from AI
+          </label>
           <button
             type="button"
             className="danger-quiet"

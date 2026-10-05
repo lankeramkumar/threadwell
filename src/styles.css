@@ -1220,3 +1220,90 @@ mark {
     box-shadow: -8px 0 24px rgb(0 0 0 / 0.15);
   }
 }
+
+/* ---- meetings, recipes, history ---- */
+
+.meeting-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.meeting-detail {
+  min-width: 0;
+}
+
+.claims {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-4);
+}
+
+.claim {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.evidence {
+  margin-right: 2px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.segments {
+  padding-left: var(--space-6);
+  font-size: 0.95rem;
+}
+
+.segments li {
+  margin-bottom: var(--space-2);
+}
+
+.recipe-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+}
+
+.recipe-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.recipe-row.is-selected {
+  background: var(--bg-selected);
+}
+
+.run-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.status-text.status-completed {
+  color: var(--accent);
+}
+
+.status-text.status-failed {
+  color: var(--danger);
+}
+
+.task-table tr.is-selected {
+  background: var(--bg-selected);
+}
+
+@media (max-width: 900px) {
+  .meeting-layout {
+    grid-template-columns: 1fr;
+  }
+}

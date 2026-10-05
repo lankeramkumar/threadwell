@@ -12,6 +12,8 @@ import { SettingsView } from './components/SettingsView';
 import { TrashView } from './components/TrashView';
 import { CommandPalette, type PaletteAction } from './components/CommandPalette';
 import { AssistantPanel } from './components/AssistantPanel';
+import { MeetingsView } from './components/MeetingsView';
+import { RecipesView } from './components/RecipesView';
 
 export type View =
   | { kind: 'home' }
@@ -19,7 +21,9 @@ export type View =
   | { kind: 'tasks'; projectId: string | null }
   | { kind: 'search'; query: string }
   | { kind: 'settings' }
-  | { kind: 'trash' };
+  | { kind: 'trash' }
+  | { kind: 'meetings' }
+  | { kind: 'recipes' };
 
 type Boot = 'loading' | 'onboarding' | 'ready';
 
@@ -129,6 +133,11 @@ export function App() {
     [go, refreshLists, reportError],
   );
 
+  // Indexing is incremental and cheap when nothing is pending, so it runs after every list change.
+  useEffect(() => {
+    if (workspace) void api.aiIndexStart().catch(() => undefined);
+  }, [workspace, pages]);
+
   // Keyboard: Ctrl+K opens the command palette.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -158,6 +167,8 @@ export function App() {
     { id: 'tasks', label: 'Go to tasks', run: () => go({ kind: 'tasks', projectId: null }) },
     { id: 'search', label: 'Go to search', run: () => go({ kind: 'search', query: '' }) },
     { id: 'trash', label: 'Go to trash', run: () => go({ kind: 'trash' }) },
+    { id: 'meetings', label: 'Go to meetings', run: () => go({ kind: 'meetings' }) },
+    { id: 'recipes', label: 'Go to recipes', run: () => go({ kind: 'recipes' }) },
     { id: 'settings', label: 'Open settings', run: () => go({ kind: 'settings' }) },
     { id: 'home', label: 'Go to home', run: () => go({ kind: 'home' }) },
   ];
@@ -243,6 +254,10 @@ export function App() {
             onError={reportError}
           />
         )}
+
+        {view.kind === 'meetings' && <MeetingsView onOpenPage={openPage} onError={reportError} />}
+
+        {view.kind === 'recipes' && <RecipesView onError={reportError} />}
 
         {view.kind === 'trash' && (
           <TrashView onRestored={() => void refreshLists().catch(reportError)} onError={reportError} />

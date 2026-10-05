@@ -1,6 +1,12 @@
 // Typed wrappers around Tauri commands. Components call these, never `invoke` directly.
 import { invoke } from '@tauri-apps/api/core';
 import type {
+  IndexStatus,
+  Meeting,
+  MeetingDetail,
+  Recipe,
+  RecipeInput,
+  RecipeRun,
   AiConfig,
   AiStatus,
   ConversationSummary,
@@ -76,4 +82,24 @@ export const api = {
   aiApplyProposal: (id: string) => invoke<Proposal>('ai_apply_proposal', { id }),
   aiRejectProposal: (id: string) => invoke<Proposal>('ai_reject_proposal', { id }),
   aiUndoProposal: (id: string) => invoke<Proposal>('ai_undo_proposal', { id }),
+
+  aiSaveRetrieval: (embedModel: string, mode: string, weightLexical: number, weightVector: number) =>
+    invoke<AiConfig>('ai_save_retrieval', { embedModel, mode, weightLexical, weightVector }),
+  aiSetPageExcluded: (id: string, excluded: boolean) => invoke<void>('ai_set_page_excluded', { id, excluded }),
+  aiIndexStatus: () => invoke<IndexStatus>('ai_index_status'),
+  aiIndexStart: () => invoke<boolean>('ai_index_start'),
+
+  meetingsList: () => invoke<Meeting[]>('meetings_list'),
+  meetingsGet: (id: string) => invoke<MeetingDetail>('meetings_get', { id }),
+  meetingsImportText: (title: string, text: string) => invoke<Meeting>('meetings_import_text', { title, text }),
+  meetingsImportFile: (path: string) => invoke<Meeting>('meetings_import_file', { path }),
+  meetingsImportAudio: (path: string) => invoke<void>('meetings_import_audio', { path }),
+  meetingsProcess: (id: string) => invoke<{ runId: string }>('meetings_process', { id }),
+
+  recipesList: () => invoke<Recipe[]>('recipes_list'),
+  recipesCreate: (input: RecipeInput) => invoke<string>('recipes_create', { input }),
+  recipesUpdate: (id: string, input: RecipeInput) => invoke<void>('recipes_update', { id, input }),
+  recipesDelete: (id: string) => invoke<void>('recipes_delete', { id }),
+  recipeRunsList: (recipeId: string) => invoke<RecipeRun[]>('recipe_runs_list', { recipeId }),
+  recipeRunNow: (recipeId: string) => invoke<string>('recipe_run_now', { recipeId }),
 };

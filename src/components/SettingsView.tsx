@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { api } from '../lib/api';
 import { AiSettings } from './AiSettings';
+import { AiRetrieval } from './AiRetrieval';
+import { RunHistory } from './RunHistory';
 import type { ThemeChoice } from '../lib/theme';
 import type { WorkspaceInfo } from '../lib/types';
 
@@ -182,6 +184,8 @@ export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored,
       </section>
 
       <AiSettings onError={onError} />
+      <AiRetrieval onError={onError} />
+      <RunHistory onError={onError} />
 
       <section aria-labelledby="privacy-heading" className="panel">
         <h2 id="privacy-heading">Privacy</h2>

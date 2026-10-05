@@ -58,6 +58,16 @@ export function Sidebar({
           active={activeView.kind === 'tasks' && activeView.projectId === null}
           onClick={() => onNavigate({ kind: 'tasks', projectId: null })}
         />
+        <NavItem
+          label="Meetings"
+          active={activeView.kind === 'meetings'}
+          onClick={() => onNavigate({ kind: 'meetings' })}
+        />
+        <NavItem
+          label="Recipes"
+          active={activeView.kind === 'recipes'}
+          onClick={() => onNavigate({ kind: 'recipes' })}
+        />
         <NavItem label="Trash" active={activeView.kind === 'trash'} onClick={() => onNavigate({ kind: 'trash' })} />
         <NavItem
           label="Settings"
