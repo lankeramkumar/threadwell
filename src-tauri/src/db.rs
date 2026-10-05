@@ -13,7 +13,12 @@ pub const ATTACHMENTS_DIR: &str = "attachments";
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_ai.sql"),
+    include_str!("../migrations/0003_knowledge_meetings_recipes.sql"),
 ];
+
+/// Migrations that rebuild tables other tables reference. They run with foreign-key
+/// enforcement off, and the result is checked before commit.
+const FK_OFF_MIGRATIONS: &[usize] = &[2];
 
 pub fn schema_version_latest() -> i64 {
     MIGRATIONS.len() as i64
@@ -36,10 +41,27 @@ pub fn migrate(conn: &mut Connection) -> AppResult<()> {
     }
     for (index, sql) in MIGRATIONS.iter().enumerate().skip(current as usize) {
         let version = index as i64 + 1;
-        let tx = conn.transaction()?;
-        tx.execute_batch(sql)?;
-        tx.execute_batch(&format!("PRAGMA user_version = {version}"))?;
-        tx.commit()?;
+        let fk_off = FK_OFF_MIGRATIONS.contains(&index);
+        if fk_off {
+            conn.pragma_update(None, "foreign_keys", "OFF")?;
+        }
+        let result = (|| -> AppResult<()> {
+            let tx = conn.transaction()?;
+            tx.execute_batch(sql)?;
+            if fk_off {
+                let violations: i64 = tx.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r.get(0))?;
+                if violations > 0 {
+                    return validation("A migration left broken references and was not applied");
+                }
+            }
+            tx.execute_batch(&format!("PRAGMA user_version = {version}"))?;
+            tx.commit()?;
+            Ok(())
+        })();
+        if fk_off {
+            conn.pragma_update(None, "foreign_keys", "ON")?;
+        }
+        result?;
     }
     Ok(())
 }
@@ -101,6 +123,34 @@ impl Deref for Tx<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn migrating_from_v2_keeps_runs_and_their_children() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("v2.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(MIGRATIONS[0]).unwrap();
+            conn.execute_batch(MIGRATIONS[1]).unwrap();
+            conn.execute_batch("PRAGMA user_version = 2").unwrap();
+            conn.execute_batch(
+                "INSERT INTO workspace_meta (id, name, created_at) VALUES ('w', 'W', 'now');
+                 INSERT INTO ai_runs (id, workspace_id, kind, status, provider, model, started_at)
+                   VALUES ('r', 'w', 'chat', 'completed', 'ollama', 'm', 'now');
+                 INSERT INTO ai_tool_events (id, run_id, step, tool, args_json, ok, summary, created_at)
+                   VALUES ('e', 'r', 1, 'search_workspace', '{}', 1, 'ok', 'now');",
+            )
+            .unwrap();
+        }
+        let mut conn = Connection::open(&path).unwrap();
+        migrate(&mut conn).unwrap();
+        let runs: i64 = conn.query_row("SELECT COUNT(*) FROM ai_runs", [], |r| r.get(0)).unwrap();
+        let events: i64 = conn.query_row("SELECT COUNT(*) FROM ai_tool_events", [], |r| r.get(0)).unwrap();
+        assert_eq!((runs, events), (1, 1));
+        conn.execute("INSERT INTO ai_runs (id, workspace_id, kind, status, provider, model, started_at) VALUES ('m', 'w', 'meeting', 'running', 'ollama', 'm', 'now')", []).unwrap();
+        let violations: i64 = conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(violations, 0);
+    }
 
     #[test]
     fn nested_transactions_roll_back_only_the_inner_part() {

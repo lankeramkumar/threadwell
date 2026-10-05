@@ -347,11 +347,13 @@ fn task_proposal_leaves_unstated_deadlines_unset_and_rejects_invalid_dates() {
         json!({ "changes": [{ "op": "create", "title": "Confirm beta date", "priority": "high" }] }),
     );
     let (_, proposals) = run(&f, vec![bad_date, good, text_line("ok")], false);
-    assert_eq!(proposals.len(), 1, "invalid date must not produce a proposal");
+    assert_eq!(proposals.len(), 2, "an invalid date is dropped, the suggestion itself still stands");
 
+    // The first proposal has no due date, because the model's date was not a real date.
     proposals::apply(&f.conn, &f.ws, &proposals[0].id).unwrap();
     let all = tasks::list_tasks(&f.conn, &f.ws, None).unwrap();
     assert_eq!(all.len(), 1);
+    assert_eq!(all[0].title, "Ship");
     assert_eq!(all[0].due_date, None);
 
     proposals::undo(&f.conn, &f.ws, &proposals[0].id).unwrap();
@@ -432,4 +434,29 @@ fn live_ollama_answers_from_the_workspace_with_a_citation() {
     println!("LIVE citations: {citations:?}, invalid tokens removed: {invalid}");
     assert!(clean.to_lowercase().contains("passkey"), "answer did not mention the decision");
     assert!(citations.iter().any(|c| c.id == page.id), "answer did not cite the source page");
+}
+
+#[test]
+fn due_dates_are_kept_only_when_a_workspace_page_states_them() {
+    let f = fixture();
+    page_with(&f, "Plan", "The launch review is on 2026-10-09.");
+    let invented = tool_line(
+        "propose_task_changes",
+        json!({ "changes": [{ "title": "Invented deadline", "dueDate": "2027-01-01" }] }),
+    );
+    let stated = tool_line(
+        "propose_task_changes",
+        json!({ "changes": [{ "title": "Launch review", "dueDate": "2026-10-09" }] }),
+    );
+    let (_, proposals) = run(&f, vec![invented, stated, text_line("ok")], false);
+    assert_eq!(proposals.len(), 2);
+
+    proposals::apply(&f.conn, &f.ws, &proposals[0].id).unwrap();
+    proposals::apply(&f.conn, &f.ws, &proposals[1].id).unwrap();
+    let mut all = tasks::list_tasks(&f.conn, &f.ws, None).unwrap();
+    all.sort_by(|a, b| a.title.cmp(&b.title));
+    assert_eq!(all[0].title, "Invented deadline");
+    assert_eq!(all[0].due_date, None, "a date no page states must not be kept");
+    assert_eq!(all[1].title, "Launch review");
+    assert_eq!(all[1].due_date.as_deref(), Some("2026-10-09"));
 }

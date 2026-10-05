@@ -12,7 +12,7 @@ use super::proposals::{self, Proposal};
 use crate::markdown;
 use crate::pages;
 use crate::search;
-use crate::tasks::{self, NewTask};
+use crate::tasks;
 use crate::util;
 
 pub const MAX_TOOL_TEXT_CHARS: usize = 6_000;
@@ -109,24 +109,19 @@ pub fn schemas() -> Value {
         ),
         tool(
             "propose_task_changes",
-            "Suggest creating or updating tasks. Leave due dates unset unless a source states one.",
+            "Suggest new tasks for the user to review. Only include a due date if a source states it.",
             json!({
                 "changes": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "op": { "type": "string", "enum": ["create", "update"] },
-                            "id": { "type": "string" },
                             "title": { "type": "string" },
                             "description": { "type": "string" },
-                            "status": { "type": "string", "enum": ["todo", "doing", "done"] },
                             "priority": { "type": "string", "enum": ["low", "medium", "high"] },
-                            "dueDate": { "type": "string", "description": "YYYY-MM-DD, only if stated in a source" },
-                            "projectId": { "type": "string" },
-                            "sourcePageId": { "type": "string" }
+                            "dueDate": { "type": "string", "description": "YYYY-MM-DD, only if stated in a source" }
                         },
-                        "required": ["op"]
+                        "required": ["title"]
                     }
                 }
             }),
@@ -225,7 +220,11 @@ fn truncate(text: &str, max: usize) -> String {
 fn search_workspace(env: &ToolEnv, args: &SearchArgs) -> Result<ToolOutput, ToolOutput> {
     let query = util::validate_line(&args.query, "Query", 200).map_err(|e| failure("invalid_arguments", e.to_string()))?;
     let hits = search::search(env.conn, env.ws, &query).map_err(|e| failure("database", e.to_string()))?;
-    let hits: Vec<_> = hits.into_iter().take(MAX_SEARCH_RESULTS).collect();
+    let hits: Vec<_> = hits
+        .into_iter()
+        .filter(|h| h.kind != "page" || !crate::knowledge::is_excluded(env.conn, &h.id).unwrap_or(true))
+        .take(MAX_SEARCH_RESULTS)
+        .collect();
     let sources: Vec<Source> = hits
         .iter()
         .map(|h| Source { kind: h.kind.to_string(), id: h.id.clone(), title: h.title.clone() })
@@ -244,6 +243,9 @@ fn search_workspace(env: &ToolEnv, args: &SearchArgs) -> Result<ToolOutput, Tool
 
 fn read_page(env: &ToolEnv, args: &ReadPageArgs) -> Result<ToolOutput, ToolOutput> {
     let page = pages::get(env.conn, env.ws, &args.page_id).map_err(|e| failure("not_found", e.to_string()))?;
+    if page.ai_excluded {
+        return Err(failure("excluded", "This page is excluded from the assistant"));
+    }
     let text = truncate(&markdown::plain_text(&page.body), MAX_PAGE_TEXT_CHARS);
     let source = Source { kind: "page".into(), id: page.id.clone(), title: page.title.clone() };
     let summary = format!("read \"{}\"", page.title);
@@ -315,6 +317,9 @@ fn propose_create_page(env: &ToolEnv, args: &CreatePageArgs) -> Result<ToolOutpu
 fn propose_edit_page(env: &ToolEnv, args: &EditPageArgs) -> Result<ToolOutput, ToolOutput> {
     check_markdown(&args.markdown)?;
     let current = pages::get(env.conn, env.ws, &args.page_id).map_err(|e| failure("not_found", e.to_string()))?;
+    if current.ai_excluded {
+        return Err(failure("excluded", "This page is excluded from the assistant"));
+    }
     let title = match &args.title {
         Some(t) => util::validate_line(t, "Title", 200).map_err(|e| failure("invalid_arguments", e.to_string()))?,
         None => current.title.clone(),
@@ -343,36 +348,58 @@ fn propose_task_changes(env: &ToolEnv, args: &TaskChangesArgs) -> Result<ToolOut
     if args.changes.is_empty() || args.changes.len() > MAX_TASK_CHANGES {
         return Err(failure("invalid_arguments", format!("Propose between 1 and {MAX_TASK_CHANGES} changes")));
     }
-    let mut resolved = Vec::new();
+    let projects = tasks::list_projects(env.conn, env.ws).map_err(|e| failure("database", e.to_string()))?;
+    let mut resolved: Vec<Value> = Vec::new();
     let mut diff = String::new();
     for change in &args.changes {
-        let op = change.get("op").and_then(Value::as_str).unwrap_or("");
-        match op {
-            "create" => {
-                let input: NewTask = serde_json::from_value(change.clone()).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-                validate_new_task(env, &input)?;
-                diff.push_str(&format!("+ task: {} ({})\n", input.title.trim(), input.status.as_deref().unwrap_or("todo")));
-                resolved.push(change.clone());
+        let raw = change.as_object().cloned().unwrap_or_default();
+        let get = |key: &str| raw.get(key).and_then(Value::as_str).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+        let id = get("id");
+        let mut item = serde_json::Map::new();
+        let summary_title = match &id {
+            Some(id) => {
+                let current = tasks::get_task(env.conn, env.ws, id).map_err(|_| failure("not_found", "a task id in the suggestion does not exist"))?;
+                item.insert("op".into(), json!("update"));
+                item.insert("id".into(), json!(id));
+                item.insert("expectedRevision".into(), json!(current.revision));
+                if let Some(t) = get("title") {
+                    item.insert("title".into(), json!(util::validate_line(&t, "Task title", 200).map_err(|e| failure("invalid_arguments", e.to_string()))?));
+                }
+                current.title
             }
-            "update" => {
-                let id = change.get("id").and_then(Value::as_str).ok_or_else(|| failure("invalid_arguments", "update needs an id"))?;
-                let current = tasks::get_task(env.conn, env.ws, id).map_err(|e| failure("not_found", e.to_string()))?;
-                let mut patched = change.clone();
-                patched["expectedRevision"] = json!(current.revision);
-                if let Some(status) = change.get("status").and_then(Value::as_str) {
-                    tasks::validate_status(status).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-                }
-                if let Some(priority) = change.get("priority").and_then(Value::as_str) {
-                    tasks::validate_priority(priority).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-                }
-                if let Some(date) = change.get("dueDate").and_then(Value::as_str).filter(|d| !d.is_empty()) {
-                    tasks::validate_due_date(date).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-                }
-                diff.push_str(&format!("~ task: {} (update)\n", current.title));
-                resolved.push(patched);
+            None => {
+                item.insert("op".into(), json!("create"));
+                let title = get("title").ok_or_else(|| failure("invalid_arguments", "each new task needs a title"))?;
+                let title = util::validate_line(&title, "Task title", 200).map_err(|e| failure("invalid_arguments", e.to_string()))?;
+                item.insert("title".into(), json!(title));
+                title
             }
-            _ => return Err(failure("invalid_arguments", "each change needs op create or update")),
+        };
+        if let Some(description) = get("description") {
+            item.insert("description".into(), json!(description.chars().take(2000).collect::<String>()));
         }
+        // Values outside the allowed set are dropped; the task keeps its default.
+        if let Some(status) = get("status").filter(|s| tasks::validate_status(s).is_ok()) {
+            item.insert("status".into(), json!(status));
+        }
+        if let Some(priority) = get("priority").filter(|p| tasks::validate_priority(p).is_ok()) {
+            item.insert("priority".into(), json!(priority));
+        }
+        // A due date the source does not state is never kept. Unparseable dates are dropped too.
+        if let Some(due) = get("dueDate")
+            .and_then(|d| tasks::validate_due_date(&d).ok())
+            .filter(|d| date_in_workspace(env, d))
+        {
+            item.insert("dueDate".into(), json!(due));
+        }
+        if let Some(project) = get("projectId").filter(|p| projects.iter().any(|known| &known.id == p)) {
+            item.insert("projectId".into(), json!(project));
+        }
+        if let Some(source) = get("sourcePageId").filter(|p| pages::get(env.conn, env.ws, p).is_ok()) {
+            item.insert("sourcePageId".into(), json!(source));
+        }
+        diff.push_str(&format!("{} task: {summary_title}\n", if id.is_some() { "~" } else { "+" }));
+        resolved.push(Value::Object(item));
     }
     let payload = json!({ "changes": resolved });
     let summary = format!("{} task change{}", resolved.len(), if resolved.len() == 1 { "" } else { "s" });
@@ -381,24 +408,17 @@ fn propose_task_changes(env: &ToolEnv, args: &TaskChangesArgs) -> Result<ToolOut
     Ok(record(proposal, summary))
 }
 
-fn validate_new_task(env: &ToolEnv, input: &NewTask) -> Result<(), ToolOutput> {
-    util::validate_line(&input.title, "Task title", 200).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-    if let Some(s) = &input.status {
-        tasks::validate_status(s).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-    }
-    if let Some(p) = &input.priority {
-        tasks::validate_priority(p).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-    }
-    if let Some(d) = input.due_date.as_deref().filter(|d| !d.is_empty()) {
-        tasks::validate_due_date(d).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-    }
-    if let Some(project) = input.project_id.as_deref().filter(|p| !p.is_empty()) {
-        util::validate_id(project).map_err(|e| failure("invalid_arguments", e.to_string()))?;
-    }
-    if let Some(page) = input.source_page_id.as_deref().filter(|p| !p.is_empty()) {
-        pages::get(env.conn, env.ws, page).map_err(|e| failure("not_found", e.to_string()))?;
-    }
-    Ok(())
+/// True if a live page in the workspace contains this date. A due date the workspace never
+/// states is not kept.
+fn date_in_workspace(env: &ToolEnv, date: &str) -> bool {
+    env.conn
+        .query_row(
+            "SELECT COUNT(*) FROM pages WHERE workspace_id = ?1 AND deleted_at IS NULL AND body_json LIKE '%' || ?2 || '%'",
+            rusqlite::params![env.ws, date],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|n| n > 0)
+        .unwrap_or(false)
 }
 
 fn check_markdown(text: &str) -> Result<(), ToolOutput> {

@@ -41,6 +41,7 @@ pub struct Page {
     pub body: Value,
     pub revision: i64,
     pub is_favorite: bool,
+    pub ai_excluded: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -112,6 +113,7 @@ pub fn get(conn: &Connection, ws: &str, id: &str) -> AppResult<Page> {
     let Some((id, parent_id, title, body_json, revision, fav, created_at, updated_at)) = row else {
         return Err(AppError::NotFound("Page".into()));
     };
+    let ai_excluded: i64 = conn.query_row("SELECT ai_excluded FROM pages WHERE id = ?1", params![id], |r| r.get(0))?;
     Ok(Page {
         id,
         parent_id,
@@ -119,6 +121,7 @@ pub fn get(conn: &Connection, ws: &str, id: &str) -> AppResult<Page> {
         body: serde_json::from_str(&body_json)?,
         revision,
         is_favorite: fav == 1,
+        ai_excluded: ai_excluded == 1,
         created_at,
         updated_at,
     })
@@ -192,6 +195,7 @@ pub fn update(
     )?;
     refresh_links(&tx, ws, id, body)?;
     search::index_page(&tx, id, &title, body)?;
+    crate::knowledge::reindex_page(&tx, ws, id, body)?;
     tx.commit()?;
     get(conn, ws, id)
 }

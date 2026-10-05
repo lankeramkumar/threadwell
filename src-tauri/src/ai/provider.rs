@@ -85,6 +85,93 @@ impl OllamaClient {
         }
     }
 
+    /// Embeds each input with `model` through `/api/embed`. Every vector must have the same
+    /// positive dimension, or the reply is rejected.
+    pub fn embed(&self, model: &str, inputs: &[String]) -> Result<Vec<Vec<f32>>, ProviderError> {
+        let body = json!({ "model": model, "input": inputs });
+        let mut response = self
+            .agent
+            .post(&format!("{}/api/embed", self.base))
+            .send_json(&body)
+            .map_err(map_transport)?;
+        let status = response.status().as_u16();
+        if status == 404 {
+            return Err(ProviderError::ModelMissing);
+        }
+        if !(200..300).contains(&status) {
+            return Err(ProviderError::Protocol(format!("HTTP {status}")));
+        }
+        let text = response.body_mut().read_to_string().map_err(|_| ProviderError::Unreachable)?;
+        let parsed: Value = serde_json::from_str(&text).map_err(|_| ProviderError::Protocol("invalid embedding reply".into()))?;
+        let rows = parsed
+            .get("embeddings")
+            .and_then(Value::as_array)
+            .ok_or_else(|| ProviderError::Protocol("embedding reply has no vectors".into()))?;
+        if rows.len() != inputs.len() {
+            return Err(ProviderError::Protocol("embedding count does not match input count".into()));
+        }
+        let mut out = Vec::with_capacity(rows.len());
+        let mut dims = None;
+        for row in rows {
+            let vector: Vec<f32> = row
+                .as_array()
+                .ok_or_else(|| ProviderError::Protocol("embedding is not an array".into()))?
+                .iter()
+                .map(|v| v.as_f64().unwrap_or(f64::NAN) as f32)
+                .collect();
+            if vector.is_empty() || vector.iter().any(|f| !f.is_finite()) {
+                return Err(ProviderError::Protocol("embedding contains invalid values".into()));
+            }
+            match dims {
+                None => dims = Some(vector.len()),
+                Some(d) if d != vector.len() => return Err(ProviderError::Protocol("mixed embedding sizes".into())),
+                _ => {}
+            }
+            out.push(vector);
+        }
+        Ok(out)
+    }
+
+    /// Non-streaming chat for structured work. With `json_mode`, the server is asked for a JSON
+    /// object. Returns the full reply and token counts.
+    pub fn chat_once(&self, messages: &[Value], json_mode: bool, cancel: &AtomicBool) -> Result<ChatReply, ProviderError> {
+        let mut body = json!({
+            "model": self.model,
+            "messages": messages,
+            "stream": false,
+            "options": { "temperature": 0.1 },
+        });
+        if json_mode {
+            body["format"] = json!("json");
+        }
+        let mut response = self
+            .agent
+            .post(&format!("{}/api/chat", self.base))
+            .send_json(&body)
+            .map_err(map_transport)?;
+        let status = response.status().as_u16();
+        if status == 404 {
+            return Err(ProviderError::ModelMissing);
+        }
+        if !(200..300).contains(&status) {
+            return Err(ProviderError::Protocol(format!("HTTP {status}")));
+        }
+        if cancel.load(Ordering::SeqCst) {
+            return Err(ProviderError::Cancelled);
+        }
+        let text = response.body_mut().read_to_string().map_err(|_| ProviderError::Unreachable)?;
+        let parsed: Value = serde_json::from_str(&text).map_err(|_| ProviderError::Protocol("invalid reply".into()))?;
+        if let Some(error) = parsed.get("error").and_then(Value::as_str) {
+            return Err(ProviderError::Protocol(truncate(error, 120)));
+        }
+        Ok(ChatReply {
+            content: parsed.pointer("/message/content").and_then(Value::as_str).unwrap_or("").to_string(),
+            tool_calls: Vec::new(),
+            prompt_tokens: parsed.get("prompt_eval_count").and_then(Value::as_u64),
+            output_tokens: parsed.get("eval_count").and_then(Value::as_u64),
+        })
+    }
+
     pub fn describe(&self) -> (String, String) {
         (self.base.clone(), self.model.clone())
     }

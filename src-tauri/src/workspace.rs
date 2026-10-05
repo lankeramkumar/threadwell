@@ -96,12 +96,30 @@ pub fn get_setting(conn: &Connection, key: &str) -> AppResult<Option<String>> {
 }
 
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
-    let allowed: &[&str] = &["theme", "ai.endpoint", "ai.model", "ai.allow_remote"];
+    let allowed: &[&str] = &[
+        "theme",
+        "ai.endpoint",
+        "ai.model",
+        "ai.allow_remote",
+        "ai.embed_model",
+        "ai.retrieval_mode",
+        "ai.weight_lexical",
+        "ai.weight_vector",
+    ];
     if !allowed.contains(&key) {
         return validation("Unknown setting");
     }
     if key == "theme" && !matches!(value, "system" | "light" | "dark") {
         return validation("Theme must be system, light or dark");
+    }
+    if key == "ai.retrieval_mode" && !matches!(value, "lexical" | "hybrid") {
+        return validation("Retrieval mode must be lexical or hybrid");
+    }
+    if key.starts_with("ai.weight_") {
+        match value.parse::<f32>() {
+            Ok(w) if (0.0..=1.0).contains(&w) => {}
+            _ => return validation("Weights must be numbers between 0 and 1"),
+        }
     }
     if key == "ai.allow_remote" && !matches!(value, "true" | "false") {
         return validation("ai.allow_remote must be true or false");

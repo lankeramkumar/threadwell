@@ -30,6 +30,8 @@ pub struct AppState {
     pub active: Arc<Mutex<Option<Active>>>,
     pub config_dir: PathBuf,
     pub runs: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+    /// Set while the embedding indexer is running, so only one runs at a time.
+    pub indexing: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -38,6 +40,7 @@ impl AppState {
             active: Arc::new(Mutex::new(None)),
             config_dir,
             runs: Arc::new(Mutex::new(HashMap::new())),
+            indexing: Arc::new(AtomicBool::new(false)),
         }
     }
 

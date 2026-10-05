@@ -5,7 +5,10 @@ mod ai;
 mod commands;
 mod db;
 mod error;
+mod knowledge;
 mod markdown;
+mod meetings;
+mod recipes;
 mod pages;
 mod sample;
 mod search;
@@ -23,6 +26,8 @@ pub fn run() {
         .setup(|app| {
             let config_dir = app.path().app_config_dir()?;
             app.manage(AppState::new(config_dir));
+            let state = app.state::<AppState>();
+            recipes::start_scheduler(app.handle().clone(), state.active.clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -39,6 +44,22 @@ pub fn run() {
             ai::commands::ai_apply_proposal,
             ai::commands::ai_reject_proposal,
             ai::commands::ai_undo_proposal,
+            ai::commands::ai_save_retrieval,
+            ai::commands::ai_set_page_excluded,
+            ai::commands::ai_index_status,
+            ai::commands::ai_index_start,
+            meetings::meetings_list,
+            meetings::meetings_get,
+            meetings::meetings_import_text,
+            meetings::meetings_import_file,
+            meetings::meetings_import_audio,
+            meetings::meetings_process,
+            recipes::recipes_list,
+            recipes::recipes_create,
+            recipes::recipes_update,
+            recipes::recipes_delete,
+            recipes::recipe_runs_list,
+            recipes::recipe_run_now,
             commands::app_status,
             commands::create_workspace,
             commands::open_workspace,

@@ -20,9 +20,9 @@ use super::config::{self, AiConfig};
 use super::provider::{OllamaClient, Readiness};
 use super::proposals::{self, Proposal};
 use super::tools::{self, Source, ToolEnv, ToolOutput};
-use crate::search;
 use crate::commands::{with_active, AppState};
 use crate::error::{validation, AppError, AppResult};
+use crate::knowledge;
 use crate::markdown;
 use crate::pages;
 use crate::util;
@@ -33,21 +33,20 @@ const MAX_PAGE_CONTEXT_CHARS: usize = 4_000;
 const HISTORY_ROWS: i64 = 20;
 const RETRIEVAL_LIMIT: usize = 6;
 
-/// Formats retrieved hits for the prompt. Titles and snippets are user content, so they are
+/// Formats retrieved pages for the prompt. Titles and snippets are user content, so they are
 /// wrapped as untrusted data, and any closing tag inside them is neutralized.
-fn retrieved_block(hits: &[search::SearchHit]) -> String {
+pub fn retrieved_block(hits: &[knowledge::Retrieved]) -> String {
     if hits.is_empty() {
-        return "No workspace source matched the keywords in the question.".into();
+        return "No workspace source matched the question.".into();
     }
     let lines: Vec<String> = hits
         .iter()
         .map(|h| {
             format!(
-                "- source={}:{} title=\"{}\" snippet=\"{}\"",
-                h.kind,
-                h.id,
+                "- source=page:{} title=\"{}\" snippet=\"{}\"",
+                h.page_id,
                 h.title.replace('"', "'"),
-                h.snippet.replace('"', "'")
+                h.snippet.replace('"', "'").replace('\n', " ")
             )
         })
         .collect();
@@ -61,6 +60,30 @@ type SharedRuns = Arc<Mutex<std::collections::HashMap<String, Arc<AtomicBool>>>>
 // ---------------------------------------------------------------------------
 // Run bookkeeping
 // ---------------------------------------------------------------------------
+
+/// Records the start of a run. Shared by meetings and recipes so every model call is traced.
+pub fn record_run_start(
+    conn: &Connection,
+    ws: &str,
+    run_id: &str,
+    kind: &str,
+    conversation_id: Option<&str>,
+    page_id: Option<&str>,
+    config: &AiConfig,
+) -> AppResult<()> {
+    insert_run(conn, ws, run_id, kind, conversation_id, page_id, config)
+}
+
+pub fn record_run_finish(
+    conn: &Connection,
+    run_id: &str,
+    status: &str,
+    stats: Stats,
+    category: Option<&str>,
+    started: Instant,
+) -> AppResult<()> {
+    finish_run(conn, run_id, status, stats, category, started)
+}
 
 fn insert_run(
     conn: &Connection,
@@ -226,15 +249,76 @@ impl Host for ActionHost {
 // Workers
 // ---------------------------------------------------------------------------
 
+struct RetrievalSettings {
+    embed_model: String,
+    mode: knowledge::Mode,
+    weights: knowledge::Weights,
+}
+
 struct ChatJob {
     run_id: String,
     ws: String,
     conversation_id: String,
-    messages: Vec<Value>,
-    seed_sources: Vec<Source>,
+    message: String,
+    history: Vec<Value>,
+    page_context: Option<String>,
+    retrieval: RetrievalSettings,
     cancel: Arc<AtomicBool>,
     client: OllamaClient,
 }
+
+struct Retrieval {
+    block: String,
+    seeds: Vec<Source>,
+}
+
+/// Runs retrieval for one chat turn. Query embedding happens without the workspace lock. If
+/// embedding fails, the turn falls back to keyword search and says so in the prompt.
+fn retrieve_for_turn(job: &ChatJob, active: &SharedActive) -> Retrieval {
+    let mut mode = job.retrieval.mode;
+    let mut note = None;
+    let mut query_vector = None;
+    if mode == knowledge::Mode::Hybrid && !job.retrieval.embed_model.is_empty() {
+        match job.client.embed(&job.retrieval.embed_model, std::slice::from_ref(&job.message)) {
+            Ok(mut vectors) => query_vector = vectors.pop(),
+            Err(error) => {
+                mode = knowledge::Mode::Lexical;
+                note = Some(format!(
+                    "Semantic search was unavailable ({}), so keyword search was used.",
+                    error.category()
+                ));
+            }
+        }
+    } else if mode == knowledge::Mode::Hybrid {
+        mode = knowledge::Mode::Lexical;
+    }
+    let hits = with_active(active, |a| {
+        if a.info.id != job.ws {
+            return Ok(Vec::new());
+        }
+        knowledge::retrieve(
+            &a.conn,
+            &job.ws,
+            &job.message,
+            query_vector.as_deref(),
+            &job.retrieval.embed_model,
+            mode,
+            job.retrieval.weights,
+            RETRIEVAL_LIMIT,
+        )
+    })
+    .unwrap_or_default();
+    let seeds: Vec<Source> = hits
+        .iter()
+        .map(|h| Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone() })
+        .collect();
+    let mut block = retrieved_block(&hits);
+    if let Some(note) = note {
+        block = format!("{note}\n{block}");
+    }
+    Retrieval { block, seeds }
+}
+
 
 fn run_chat_worker(app: AppHandle, active: SharedActive, runs: SharedRuns, job: ChatJob) {
     let started = Instant::now();
@@ -245,8 +329,15 @@ fn run_chat_worker(app: AppHandle, active: SharedActive, runs: SharedRuns, job: 
         run_id: job.run_id.clone(),
         cancel: job.cancel.clone(),
     };
+    let retrieval = retrieve_for_turn(&job, &active);
+    let mut messages = vec![json!({
+        "role": "system",
+        "content": agent::system_prompt(job.page_context.as_deref(), Some(&retrieval.block)),
+    })];
+    messages.extend(job.history.iter().cloned());
+    messages.push(json!({ "role": "user", "content": job.message }));
     let tools = tools::schemas();
-    let outcome = agent::run_loop(&job.client, &mut host, job.messages, Some(&tools), &job.cancel, job.seed_sources);
+    let outcome = agent::run_loop(&job.client, &mut host, messages, Some(&tools), &job.cancel, retrieval.seeds);
 
     let done = match outcome {
         Outcome::Completed { content, sources, proposals, stats } => {
@@ -497,9 +588,10 @@ pub async fn ai_chat_send(app: AppHandle, state: State<'_, AppState>, request: C
         };
         turns.reverse();
         let history = agent::chat_history(&turns);
+        // An excluded page is never sent to the model, not even as the open-page context.
         let context = match &request.page_id {
-            Some(page) => Some(page_context(&a.conn, &ws, page)?),
-            None => None,
+            Some(page) if !knowledge::is_excluded(&a.conn, page)? => Some(page_context(&a.conn, &ws, page)?),
+            _ => None,
         };
         a.conn.execute(
             "INSERT INTO ai_messages (id, workspace_id, conversation_id, role, content, created_at)
@@ -508,34 +600,25 @@ pub async fn ai_chat_send(app: AppHandle, state: State<'_, AppState>, request: C
         )?;
         let run_id = choose_run_id(&request.run_id)?;
         insert_run(&a.conn, &ws, &run_id, "chat", Some(&conversation_id), request.page_id.as_deref(), &cfg)?;
-        // Retrieval happens before the first model call. Small models do not reliably
-        // decide to search, and the sources they are given become citation candidates.
-        let hits = search::retrieve(&a.conn, &ws, &message, RETRIEVAL_LIMIT)?;
-        let seed: Vec<Source> = hits
-            .iter()
-            .map(|h| Source { kind: h.kind.to_string(), id: h.id.clone(), title: h.title.clone() })
-            .collect();
-        let retrieved = retrieved_block(&hits);
-        let mut messages = vec![json!({
-            "role": "system",
-            "content": agent::system_prompt(context.as_deref(), Some(&retrieved)),
-        })];
-        messages.extend(history);
-        messages.push(json!({ "role": "user", "content": message }));
-        Ok((ws, cfg, conversation_id, run_id, messages, seed))
+        Ok((ws, cfg, conversation_id, run_id, history, context))
     })?;
-    let (ws, cfg, conversation_id, run_id, messages, seed_sources) = prepared;
+    let (ws, cfg, conversation_id, run_id, history, page_context) = prepared;
     let cancel = Arc::new(AtomicBool::new(false));
     register_run(&runs, &run_id, cancel.clone());
-    let client = OllamaClient::new(&cfg.endpoint, &cfg.model);
     let job = ChatJob {
         run_id: run_id.clone(),
         ws,
         conversation_id: conversation_id.clone(),
-        messages,
-        seed_sources,
+        message,
+        history,
+        page_context,
+        retrieval: RetrievalSettings {
+            embed_model: cfg.embed_model.clone(),
+            mode: knowledge::Mode::parse(&cfg.retrieval_mode).unwrap_or(knowledge::Mode::Hybrid),
+            weights: knowledge::Weights { lexical: cfg.weight_lexical, vector: cfg.weight_vector },
+        },
         cancel: cancel.clone(),
-        client,
+        client: OllamaClient::new(&cfg.endpoint, &cfg.model),
     };
     spawn_worker(app, active, runs, run_id.clone(), cancel, move |app, active, runs, _run, _cancel| {
         run_chat_worker(app, active, runs, job);
@@ -804,4 +887,120 @@ pub async fn ai_reject_proposal(state: State<'_, AppState>, id: String) -> AppRe
 #[tauri::command]
 pub async fn ai_undo_proposal(state: State<'_, AppState>, id: String) -> AppResult<Proposal> {
     with_active(&state.active, |a| proposals::undo(&a.conn, &a.info.id, &id))
+}
+
+
+// ---------------------------------------------------------------------------
+// Commands: retrieval, exclusion, index
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn ai_save_retrieval(
+    state: State<'_, AppState>,
+    embed_model: String,
+    mode: String,
+    weight_lexical: f32,
+    weight_vector: f32,
+) -> AppResult<AiConfig> {
+    with_active(&state.active, |a| config::save_retrieval(&a.conn, &embed_model, &mode, weight_lexical, weight_vector))
+}
+
+#[tauri::command]
+pub async fn ai_set_page_excluded(state: State<'_, AppState>, id: String, excluded: bool) -> AppResult<()> {
+    with_active(&state.active, |a| knowledge::set_excluded(&a.conn, &a.info.id, &id, excluded))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexStatus {
+    pub embedded: i64,
+    pub total: i64,
+    pub model: String,
+    pub running: bool,
+}
+
+#[tauri::command]
+pub async fn ai_index_status(state: State<'_, AppState>) -> AppResult<IndexStatus> {
+    let running = state.indexing.load(Ordering::SeqCst);
+    with_active(&state.active, |a| {
+        let cfg = config::load(&a.conn)?;
+        let (embedded, total) = knowledge::index_counts(&a.conn, &a.info.id, &cfg.embed_model)?;
+        Ok(IndexStatus { embedded, total, model: cfg.embed_model, running })
+    })
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IndexEvent {
+    status: &'static str,
+    embedded: i64,
+    category: Option<&'static str>,
+}
+
+/// Starts the background embedder for the open workspace. Returns false if it is already
+/// running. Failures (no embedding model, server down) are reported as events.
+#[tauri::command]
+pub async fn ai_index_start(app: AppHandle, state: State<'_, AppState>) -> AppResult<bool> {
+    let (ws, cfg) = with_active(&state.active, |a| {
+        let cfg = config::load(&a.conn)?;
+        config::validate_endpoint(&cfg.endpoint, cfg.allow_remote)?;
+        if cfg.embed_model.is_empty() {
+            return validation("Choose an embedding model first.");
+        }
+        Ok((a.info.id.clone(), cfg))
+    })?;
+    if state.indexing.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        return Ok(false);
+    }
+    let active = state.active.clone();
+    let indexing = state.indexing.clone();
+    let client = OllamaClient::new(&cfg.endpoint, &cfg.model);
+    let _ = std::thread::Builder::new().name("threadwell-index".into()).spawn(move || {
+        run_indexer(app, active, indexing, ws, client, cfg.embed_model);
+    });
+    Ok(true)
+}
+
+const INDEX_BATCH: usize = 16;
+
+fn run_indexer(app: AppHandle, active: SharedActive, indexing: Arc<AtomicBool>, ws: String, client: OllamaClient, model: String) {
+    let mut embedded = 0_i64;
+    loop {
+        let batch = match with_active(&active, |a| {
+            if a.info.id != ws {
+                return Ok(Vec::new());
+            }
+            knowledge::pending_chunks(&a.conn, &ws, &model, INDEX_BATCH)
+        }) {
+            Ok(batch) => batch,
+            Err(_) => break,
+        };
+        if batch.is_empty() {
+            break;
+        }
+        let inputs: Vec<String> = batch.iter().map(|c| c.input.clone()).collect();
+        let vectors = match client.embed(&model, &inputs) {
+            Ok(vectors) => vectors,
+            Err(error) => {
+                let _ = app.emit("ai://index", IndexEvent { status: "error", embedded, category: Some(error.category()) });
+                break;
+            }
+        };
+        let stored = with_active(&active, |a| {
+            if a.info.id != ws {
+                return Ok(0);
+            }
+            for (chunk, vector) in batch.iter().zip(&vectors) {
+                knowledge::store_embedding(&a.conn, &chunk.chunk_id, &model, vector, &chunk.hash)?;
+            }
+            Ok(batch.len())
+        });
+        match stored {
+            Ok(count) if count > 0 => embedded += count as i64,
+            _ => break,
+        }
+        let _ = app.emit("ai://index", IndexEvent { status: "progress", embedded, category: None });
+    }
+    indexing.store(false, Ordering::SeqCst);
+    let _ = app.emit("ai://index", IndexEvent { status: "idle", embedded, category: None });
 }

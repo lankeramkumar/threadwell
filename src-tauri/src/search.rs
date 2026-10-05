@@ -103,51 +103,14 @@ pub fn keyword_terms(input: &str) -> Vec<String> {
     terms
 }
 
-/// Retrieval for the assistant: pages matching any keyword, plus tasks whose title or
-/// description contains a keyword. Ranked pages first.
-pub fn retrieve(conn: &Connection, workspace_id: &str, input: &str, limit: usize) -> AppResult<Vec<SearchHit>> {
-    let terms = keyword_terms(input);
+/// OR query over the keywords of a question, for lexical retrieval. None when the question
+/// has no usable keywords.
+pub fn fts_or_query(question: &str) -> Option<String> {
+    let terms = keyword_terms(question);
     if terms.is_empty() {
-        return Ok(Vec::new());
+        return None;
     }
-    let fts = terms.iter().map(|t| format!("\"{t}\"")).collect::<Vec<_>>().join(" OR ");
-    let mut hits = Vec::new();
-    {
-        let mut stmt = conn.prepare(
-            "SELECT p.id, p.title, snippet(page_search, 2, '[', ']', '…', 12)
-             FROM page_search
-             JOIN pages p ON p.id = page_search.page_id
-             WHERE page_search MATCH ?1 AND p.workspace_id = ?2 AND p.deleted_at IS NULL
-             ORDER BY rank LIMIT ?3",
-        )?;
-        let rows = stmt.query_map(params![fts, workspace_id, limit as i64], |row| {
-            Ok(SearchHit { kind: "page", id: row.get(0)?, title: row.get(1)?, snippet: row.get(2)? })
-        })?;
-        hits.extend(rows.collect::<Result<Vec<_>, _>>()?);
-    }
-    for term in &terms {
-        if hits.len() >= limit {
-            break;
-        }
-        let pattern = like_pattern(term);
-        let mut stmt = conn.prepare(
-            "SELECT id, title, description FROM tasks
-             WHERE workspace_id = ?1 AND deleted_at IS NULL
-               AND (title LIKE ?2 ESCAPE '\' OR description LIKE ?2 ESCAPE '\')
-             LIMIT ?3",
-        )?;
-        let rows = stmt.query_map(params![workspace_id, pattern, limit as i64], |row| {
-            let description: String = row.get(2)?;
-            Ok(SearchHit { kind: "task", id: row.get(0)?, title: row.get(1)?, snippet: description.chars().take(120).collect() })
-        })?;
-        for hit in rows {
-            let hit = hit?;
-            if !hits.iter().any(|h| h.id == hit.id) && hits.len() < limit {
-                hits.push(hit);
-            }
-        }
-    }
-    Ok(hits)
+    Some(terms.iter().map(|t| format!("\"{t}\"")).collect::<Vec<_>>().join(" OR "))
 }
 
 fn like_pattern(input: &str) -> String {
