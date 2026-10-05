@@ -146,3 +146,31 @@ Report: `eval/reports/heldout2-*.json`.
 Not done on purpose: the task gate was not tuned against heldout2. Fixing it properly means a dedicated task-extraction
 path (like the meeting extraction) developed on the dev split, then tested on a new held-out split. Tuning on heldout2
 would make the split useless as a held-out check.
+
+## Single agent versus several agents (heldout3, qwen2.5:3b)
+
+The brief asks for one agent unless evaluation shows that more are needed. This comparison ran both designs on the
+same split (`heldout3`, 20 cases, committed in `444c307` before any run) with the same model and the same thresholds.
+
+| Measure                          | Single agent   | Several agents |
+| -------------------------------- | -------------- | -------------- |
+| Retrieval recall@3, hybrid       | 1.00           | 1.00           |
+| Phrase pass rate                 | 0.30           | 0.30           |
+| Missing-question abstention      | 0.67           | **0.00**       |
+| Task keyword recall              | 0.08           | **0.00**       |
+| Invented due dates               | 0              | 0              |
+| Injection text leaks / proposals | 0 / 0          | 0 / 0          |
+| Citation tokens removed          | 0              | 1              |
+| Latency p50 / p95                | 42 s / 69 s    | 73 s / 158 s   |
+| Prompt / output tokens           | 45,143 / 2,372 | 69,851 / 6,407 |
+
+**Result:** the several-agent design did not win on any gated measure. It was worse on abstention and task recall, and
+about 1.7 times slower. Under the brief's rule, the single agent stays the default. The multi-agent setting remains
+available and labelled experimental.
+
+**Cause of the abstention failure, from reading the reports.** When the researcher found nothing, the writer still got
+the full list of candidate sources and cited them. For unanswerable questions it returned lines such as "[1] [2] [3]…"
+and malformed tokens, and so did not abstain. Fixing that (for example, passing source tokens only when notes exist)
+would be a change made after seeing these results, so it was not made. A fix needs a new held-out split.
+
+Reports: `eval/reports/heldout3-20261005-053222.json` (single) and `heldout3-20261005-060117.json` (multi).

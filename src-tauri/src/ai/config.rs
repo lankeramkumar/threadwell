@@ -21,6 +21,8 @@ pub struct AiConfig {
     pub retrieval_mode: String,
     pub weight_lexical: f32,
     pub weight_vector: f32,
+    /// "single" (one agent with tools, the default) or "multi" (planner, researcher, writer and actor).
+    pub architecture: String,
 }
 
 pub const DEFAULT_EMBED_MODEL: &str = "nomic-embed-text";
@@ -33,6 +35,7 @@ pub fn load(conn: &Connection) -> AppResult<AiConfig> {
     let retrieval_mode = get_setting(conn, "ai.retrieval_mode")?.unwrap_or_else(|| "hybrid".to_string());
     let weight_lexical = weight(conn, "ai.weight_lexical", 0.4)?;
     let weight_vector = weight(conn, "ai.weight_vector", 0.6)?;
+    let architecture = get_setting(conn, "ai.architecture")?.unwrap_or_else(|| "single".to_string());
     Ok(AiConfig {
         endpoint,
         model,
@@ -41,6 +44,7 @@ pub fn load(conn: &Connection) -> AppResult<AiConfig> {
         retrieval_mode,
         weight_lexical,
         weight_vector,
+        architecture,
     })
 }
 

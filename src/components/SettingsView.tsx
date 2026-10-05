@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { AiSettings } from './AiSettings';
 import { FolderImport } from './FolderImport';
 import { AudioTranscription } from './AudioTranscription';
+import { TelemetrySettings } from './TelemetrySettings';
 import { AiRetrieval } from './AiRetrieval';
 import { RunHistory } from './RunHistory';
 import type { ThemeChoice } from '../lib/theme';
@@ -164,6 +165,7 @@ export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored,
 
       <FolderImport onImported={onPagesChanged} onError={onError} />
       <AudioTranscription onError={onError} />
+      <TelemetrySettings onError={onError} />
 
       <section aria-labelledby="backup-heading" className="panel">
         <h2 id="backup-heading">Backup and restore</h2>

@@ -118,6 +118,7 @@ export interface AiConfig {
   model: string;
   allowRemote: boolean;
   embedModel: string;
+  architecture: 'single' | 'multi';
   retrievalMode: 'lexical' | 'hybrid';
   weightLexical: number;
   weightVector: number;
@@ -373,4 +374,10 @@ export interface FolderSync {
   changed: number;
   failed: number;
   error: string | null;
+}
+
+// ---- telemetry ----
+
+export interface TelemetrySettings {
+  localTraces: boolean;
 }

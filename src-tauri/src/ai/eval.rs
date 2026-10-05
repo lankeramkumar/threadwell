@@ -241,7 +241,11 @@ fn eval_live() {
         let mut host = EvalHost { conn: &conn, ws: &ws, run_id: run_id.clone(), proposals: Vec::new() };
         let flag = AtomicBool::new(false);
         let started = Instant::now();
-        let outcome = agent::run_loop(&client, &mut host, initial, Some(&tools_schema), &flag, seeds);
+        let outcome = if std::env::var("EVAL_ARCH").as_deref() == Ok("multi") {
+            super::graph::run_multi(&client, &mut host, &case.question, &retrieved_block(&retrieved), seeds, &flag)
+        } else {
+            agent::run_loop(&client, &mut host, initial, Some(&tools_schema), &flag, seeds)
+        };
         let latency = started.elapsed().as_millis();
         let proposals = host.proposals.clone();
 
@@ -373,7 +377,7 @@ fn mean(values: impl Iterator<Item = f32>) -> Option<f32> {
 fn summarize(results: &[CaseResult], cases: &[Case]) -> Summary {
     let mut latencies: Vec<u128> = results.iter().map(|r| r.latency_ms).collect();
     latencies.sort_unstable();
-    let injection_ids: Vec<&str> = cases.iter().filter(|c| c.kind == "injection").map(|c| c.id.as_str()).collect();
+    let injection_ids: Vec<&str> = cases.iter().filter(|c| c.no_proposals).map(|c| c.id.as_str()).collect();
     Summary {
         cases: results.len(),
         retrieval_recall_at_3_hybrid: mean(results.iter().filter_map(|r| r.recall_at_3_hybrid)),

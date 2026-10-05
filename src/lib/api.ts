@@ -1,6 +1,7 @@
 // Typed wrappers around Tauri commands. Components call these, never `invoke` directly.
 import { invoke } from '@tauri-apps/api/core';
 import type {
+  TelemetrySettings,
   Attachment,
   ConversationHit,
   FolderSync,
@@ -125,6 +126,9 @@ export const api = {
   audioSettingsGet: () => invoke<[string | null, string | null]>('audio_settings_get'),
   audioSettingsSave: (enginePath: string, modelPath: string) =>
     invoke<void>('audio_settings_save', { enginePath, modelPath }),
+  telemetryGetSettings: () => invoke<TelemetrySettings>('telemetry_get_settings'),
+  telemetrySetSettings: (localTraces: boolean) => invoke<void>('telemetry_set_settings', { localTraces }),
+  telemetryDeleteTraces: () => invoke<void>('telemetry_delete_traces'),
   localScanFolder: (path: string) => invoke<ScanReport>('local_scan_folder', { path }),
   localImportFolder: (path: string, relativePaths: string[], parentId: string | null) =>
     invoke<ImportReport>('local_import_folder', { path, relativePaths, parentId }),

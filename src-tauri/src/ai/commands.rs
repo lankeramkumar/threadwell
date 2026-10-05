@@ -256,6 +256,8 @@ struct RetrievalSettings {
 }
 
 struct ChatJob {
+    /// True when the multi-agent graph should run instead of the single agent.
+    multi: bool,
     run_id: String,
     ws: String,
     conversation_id: String,
@@ -337,7 +339,13 @@ fn run_chat_worker(app: AppHandle, active: SharedActive, runs: SharedRuns, job: 
     messages.extend(job.history.iter().cloned());
     messages.push(json!({ "role": "user", "content": job.message }));
     let tools = tools::schemas();
-    let outcome = agent::run_loop(&job.client, &mut host, messages, Some(&tools), &job.cancel, retrieval.seeds);
+    let outcome = if job.multi {
+        let context = format!("{}
+{}", retrieval.block, job.page_context.as_deref().unwrap_or(""));
+        super::graph::run_multi(&job.client, &mut host, &job.message, &context, retrieval.seeds, &job.cancel)
+    } else {
+        agent::run_loop(&job.client, &mut host, messages, Some(&tools), &job.cancel, retrieval.seeds)
+    };
 
     let done = match outcome {
         Outcome::Completed { content, sources, proposals, stats } => {
@@ -623,6 +631,7 @@ Selected passage:
     let cancel = Arc::new(AtomicBool::new(false));
     register_run(&runs, &run_id, cancel.clone());
     let job = ChatJob {
+        multi: cfg.architecture == "multi",
         run_id: run_id.clone(),
         ws,
         conversation_id: conversation_id.clone(),

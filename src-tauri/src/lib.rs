@@ -16,6 +16,7 @@ mod pages;
 mod sample;
 mod search;
 mod tasks;
+mod telemetry;
 mod transfer;
 mod util;
 mod workspace;
@@ -28,6 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let config_dir = app.path().app_config_dir()?;
+            telemetry::init(&config_dir);
             app.manage(AppState::new(config_dir));
             let state = app.state::<AppState>();
             recipes::start_scheduler(app.handle().clone(), state.active.clone());
@@ -53,6 +55,9 @@ pub fn run() {
             ai::commands::ai_index_start,
             ai::history::ai_search_conversations,
             ai::history::ai_delete_run,
+            telemetry::telemetry_get_settings,
+            telemetry::telemetry_set_settings,
+            telemetry::telemetry_delete_traces,
             attachments::attachments_list,
             attachments::attachment_add,
             attachments::attachment_remove,

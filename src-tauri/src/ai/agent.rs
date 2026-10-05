@@ -92,14 +92,33 @@ pub fn run_loop(
     cancel: &AtomicBool,
     seed_sources: Vec<Source>,
 ) -> Outcome {
+    run_loop_bounded(client, host, initial, tools, cancel, seed_sources, MAX_STEPS)
+}
+
+/// The same loop with a step limit chosen by the caller. Multi-agent roles use smaller limits.
+pub fn run_loop_bounded(
+    client: &OllamaClient,
+    host: &mut dyn Host,
+    initial: Vec<Value>,
+    tools: Option<&Value>,
+    cancel: &AtomicBool,
+    seed_sources: Vec<Source>,
+    max_steps: usize,
+) -> Outcome {
     let mut messages = initial;
+    let run_span = tracing::info_span!("agent.run", architecture = "single", max_steps = max_steps as i64);
+    let _run_guard = run_span.enter();
     let mut stats = Stats::default();
     let mut sources: Vec<Source> = seed_sources;
     let mut recoverable_failures = 0;
     let mut proposals = 0;
 
-    for step in 1..=MAX_STEPS {
+    for step in 1..=max_steps {
         stats.steps = step;
+        let step_span = tracing::info_span!("agent.step", step = step as i64);
+        let _step_guard = step_span.enter();
+        let model_span = tracing::info_span!("model.chat", prompt_tokens = tracing::field::Empty, output_tokens = tracing::field::Empty);
+        let model_guard = model_span.enter();
         let reply = match client.chat_stream(&messages, tools, cancel, |text| host.text_delta(text)) {
             Ok(reply) => reply,
             Err(ProviderError::Cancelled) => return Outcome::Cancelled { stats },
@@ -112,6 +131,9 @@ pub fn run_loop(
                 };
             }
         };
+        model_span.record("prompt_tokens", reply.prompt_tokens.unwrap_or(0) as i64);
+        model_span.record("output_tokens", reply.output_tokens.unwrap_or(0) as i64);
+        drop(model_guard);
         stats.prompt_tokens += reply.prompt_tokens.unwrap_or(0);
         stats.output_tokens += reply.output_tokens.unwrap_or(0);
 
@@ -138,7 +160,14 @@ pub fn run_loop(
             if cancel.load(std::sync::atomic::Ordering::SeqCst) {
                 return Outcome::Cancelled { stats };
             }
+            let tool_span = tracing::info_span!("tool.call", tool = %call.name, ok = tracing::field::Empty, category = tracing::field::Empty);
+            let tool_guard = tool_span.enter();
             let output = host.run_tool(step, &call.name, &call.arguments);
+            tool_span.record("ok", output.ok);
+            if let Some(category) = output.category {
+                tool_span.record("category", category);
+            }
+            drop(tool_guard);
             sources.extend(output.sources.iter().cloned());
             if let Some(proposal) = &output.proposal {
                 proposals += 1;
@@ -167,7 +196,7 @@ pub fn run_loop(
 
     Outcome::Failed {
         category: "step_limit",
-        message: format!("The assistant stopped after {MAX_STEPS} steps without a final answer."),
+        message: format!("The assistant stopped after {max_steps} steps without a final answer."),
         stats,
     }
 }

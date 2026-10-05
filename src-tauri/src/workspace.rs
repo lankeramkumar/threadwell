@@ -105,6 +105,7 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
         "ai.retrieval_mode",
         "ai.weight_lexical",
         "ai.weight_vector",
+        "ai.architecture",
     ];
     if !allowed.contains(&key) {
         return validation("Unknown setting");
@@ -120,6 +121,9 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
             Ok(w) if (0.0..=1.0).contains(&w) => {}
             _ => return validation("Weights must be numbers between 0 and 1"),
         }
+    }
+    if key == "ai.architecture" && !matches!(value, "single" | "multi") {
+        return validation("Architecture must be single or multi");
     }
     if key == "ai.allow_remote" && !matches!(value, "true" | "false") {
         return validation("ai.allow_remote must be true or false");

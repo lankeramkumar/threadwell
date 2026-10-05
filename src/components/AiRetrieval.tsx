@@ -14,6 +14,18 @@ export function AiRetrieval({ onError }: { onError: (e: unknown) => void }) {
   const [weightLexical, setWeightLexical] = useState(0.4);
   const [weightVector, setWeightVector] = useState(0.6);
   const [index, setIndex] = useState<IndexStatus | null>(null);
+  const [architecture, setArchitecture] = useState<'single' | 'multi'>('single');
+
+  const changeArchitecture = async (value: 'single' | 'multi') => {
+    setNotice(null);
+    try {
+      await api.setSetting('ai.architecture', value);
+      setArchitecture(value);
+      setNotice(value === 'multi' ? 'Multi-agent mode is experimental and makes more model calls, so answers take longer.' : 'Saved.');
+    } catch (err) {
+      setNotice(messageFor(err));
+    }
+  };
   const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = () => {
@@ -29,6 +41,7 @@ export function AiRetrieval({ onError }: { onError: (e: unknown) => void }) {
       .then(() => api.aiGetStatus())
       .then((s) => {
         setEmbedModel(s.config.embedModel);
+        setArchitecture(s.config.architecture);
         setMode(s.config.retrievalMode);
         setWeightLexical(s.config.weightLexical);
         setWeightVector(s.config.weightVector);
@@ -86,6 +99,18 @@ export function AiRetrieval({ onError }: { onError: (e: unknown) => void }) {
           {index.running ? ' · indexing now' : ''}
         </p>
       )}
+
+      <label className="inline-label">
+        <span>Agent design</span>
+        <select value={architecture} onChange={(e) => void changeArchitecture(e.target.value as 'single' | 'multi')}>
+          <option value="single">One agent (default)</option>
+          <option value="multi">Several agents (experimental)</option>
+        </select>
+      </label>
+      <p className="muted small">
+        Several agents split the work into planning, research, writing and an optional action step. Each agent sees only
+        the tools it needs. Whether it helps is measured in eval/README.md.
+      </p>
 
       <form className="stack" onSubmit={save}>
         <label className="field">
