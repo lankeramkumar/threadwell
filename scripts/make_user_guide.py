@@ -73,7 +73,7 @@ r.font.color.rgb = RGBColor(0x2E, 0x3A, 0x6B)
 sub = doc.add_paragraph()
 r = sub.add_run("Step-by-step user guide")
 r.font.size = Pt(15)
-para("Version 0.1.4 for Windows 11. Covers notes, tasks, search, import and export, backup, the local assistant, "
+para("Version 0.1.5 for Windows 11. Covers notes, tasks, search, import and export, backup, the local assistant, "
      "meetings, recipes, several workspaces, and linked project folders.")
 
 doc.add_heading("Before you start", level=1)
@@ -90,7 +90,7 @@ bullets([
 doc.add_heading("1. Install Threadwell", level=1)
 para("You need Windows 11. The installers are not code-signed, so Windows will show a warning the first time.")
 steps([
-    "Open the installer you were given: Threadwell_0.1.4_x64_en-US.msi (Windows Installer) or Threadwell_0.1.4_x64-setup.exe.",
+    "Open the installer you were given: Threadwell_0.1.5_x64_en-US.msi (Windows Installer) or Threadwell_0.1.5_x64-setup.exe.",
     "If Windows SmartScreen says it protected your PC, click More info, then Run anyway. Only do this for the file you downloaded from the place you trust.",
     "Follow the installer. Threadwell needs Microsoft Edge WebView2 Runtime, which Windows 11 includes.",
     "Start Threadwell from the Start menu.",

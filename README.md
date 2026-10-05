@@ -50,8 +50,8 @@ Everything except the assistant, meetings and recipes works with no internet con
 ## Download and install
 
 1. Go to the [Releases page](https://github.com/lankeramkumar/threadwell/releases) and download one of:
-   - `Threadwell_0.1.4_x64_en-US.msi`: Windows Installer package
-   - `Threadwell_0.1.4_x64-setup.exe`: setup program
+   - `Threadwell_0.1.5_x64_en-US.msi`: Windows Installer package
+   - `Threadwell_0.1.5_x64-setup.exe`: setup program
 2. Run it. If Windows SmartScreen says it protected your PC, click **More info**, then **Run anyway**. This happens
    because the installer is not code-signed.
 3. Start **Threadwell** from the Start menu.
@@ -310,7 +310,7 @@ The first build takes several minutes because SQLite is compiled from source.
 
 ## Project status and limits
 
-Threadwell implements all six milestones in its brief. Version 0.1.4 adds several workspaces, scoped assistant
+Threadwell implements all six milestones in its brief. Version 0.1.5 adds line citations for code, drag and drop, quick questions, and a sample project. Version 0.1.4 added several workspaces, scoped assistant
 retrieval across them, and an optional several-agent mode. Details are in [docs/STATUS.md](docs/STATUS.md). The main limits:
 
 - **Assistant quality:** on the latest held-out split, four of eight gated measures fail (phrasing, task recall, one leaked injected word, and injection-triggered proposals). Treat its output as a draft. See [eval/README.md](eval/README.md).
