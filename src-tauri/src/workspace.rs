@@ -96,12 +96,18 @@ pub fn get_setting(conn: &Connection, key: &str) -> AppResult<Option<String>> {
 }
 
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> AppResult<()> {
-    let allowed: &[&str] = &["theme"];
+    let allowed: &[&str] = &["theme", "ai.endpoint", "ai.model", "ai.allow_remote"];
     if !allowed.contains(&key) {
         return validation("Unknown setting");
     }
     if key == "theme" && !matches!(value, "system" | "light" | "dark") {
         return validation("Theme must be system, light or dark");
+    }
+    if key == "ai.allow_remote" && !matches!(value, "true" | "false") {
+        return validation("ai.allow_remote must be true or false");
+    }
+    if value.len() > 2048 {
+        return validation("Setting value is too long");
     }
     conn.execute(
         "INSERT INTO settings (key, value) VALUES (?1, ?2)

@@ -3,7 +3,7 @@
 //! `page_search` is derived data. Pages are authoritative, and `rebuild` regenerates
 //! the index from them. Every query is scoped to one workspace id.
 
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, Connection};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -23,7 +23,7 @@ pub struct SearchHit {
 }
 
 /// Replaces a page's index row. Callers pass the same title and body that were stored.
-pub fn index_page(conn: &Transaction, page_id: &str, title: &str, body: &Value) -> AppResult<()> {
+pub fn index_page(conn: &Connection, page_id: &str, title: &str, body: &Value) -> AppResult<()> {
     conn.execute("DELETE FROM page_search WHERE page_id = ?1", params![page_id])?;
     conn.execute(
         "INSERT INTO page_search (page_id, title, body) VALUES (?1, ?2, ?3)",
@@ -39,7 +39,7 @@ pub fn remove_page(conn: &Connection, page_id: &str) -> AppResult<()> {
 
 /// Drops and rebuilds the page index from live pages in one transaction.
 pub fn rebuild(conn: &Connection, workspace_id: &str) -> AppResult<usize> {
-    let tx = conn.unchecked_transaction()?;
+    let tx = crate::db::Tx::begin(conn)?;
     tx.execute("DELETE FROM page_search", [])?;
     let rows: Vec<(String, String, String)> = {
         let mut stmt = tx.prepare(
@@ -79,6 +79,75 @@ pub fn build_fts_query(input: &str) -> Option<String> {
         .map(|(i, t)| if i == last { format!("\"{t}\"*") } else { format!("\"{t}\"") })
         .collect();
     Some(quoted.join(" "))
+}
+
+const STOPWORDS: &[&str] = &[
+    "the", "and", "for", "that", "with", "what", "did", "does", "about", "from", "this", "have", "has", "was",
+    "were", "are", "how", "why", "when", "where", "who", "which", "into", "our", "we", "you", "your", "they",
+    "them", "their", "can", "could", "would", "should", "there", "here", "any", "all", "not", "but", "its",
+];
+
+/// Keywords from a natural-language question, joined with OR so that one matching word
+/// is enough to retrieve a page. Stopwords and very short words are dropped.
+pub fn keyword_terms(input: &str) -> Vec<String> {
+    let mut terms: Vec<String> = Vec::new();
+    for raw in input.split(|c: char| !c.is_alphanumeric()) {
+        let term = raw.to_lowercase();
+        if term.chars().count() >= 3 && !STOPWORDS.contains(&term.as_str()) && !terms.contains(&term) {
+            terms.push(term);
+        }
+        if terms.len() == 12 {
+            break;
+        }
+    }
+    terms
+}
+
+/// Retrieval for the assistant: pages matching any keyword, plus tasks whose title or
+/// description contains a keyword. Ranked pages first.
+pub fn retrieve(conn: &Connection, workspace_id: &str, input: &str, limit: usize) -> AppResult<Vec<SearchHit>> {
+    let terms = keyword_terms(input);
+    if terms.is_empty() {
+        return Ok(Vec::new());
+    }
+    let fts = terms.iter().map(|t| format!("\"{t}\"")).collect::<Vec<_>>().join(" OR ");
+    let mut hits = Vec::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT p.id, p.title, snippet(page_search, 2, '[', ']', '…', 12)
+             FROM page_search
+             JOIN pages p ON p.id = page_search.page_id
+             WHERE page_search MATCH ?1 AND p.workspace_id = ?2 AND p.deleted_at IS NULL
+             ORDER BY rank LIMIT ?3",
+        )?;
+        let rows = stmt.query_map(params![fts, workspace_id, limit as i64], |row| {
+            Ok(SearchHit { kind: "page", id: row.get(0)?, title: row.get(1)?, snippet: row.get(2)? })
+        })?;
+        hits.extend(rows.collect::<Result<Vec<_>, _>>()?);
+    }
+    for term in &terms {
+        if hits.len() >= limit {
+            break;
+        }
+        let pattern = like_pattern(term);
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description FROM tasks
+             WHERE workspace_id = ?1 AND deleted_at IS NULL
+               AND (title LIKE ?2 ESCAPE '\' OR description LIKE ?2 ESCAPE '\')
+             LIMIT ?3",
+        )?;
+        let rows = stmt.query_map(params![workspace_id, pattern, limit as i64], |row| {
+            let description: String = row.get(2)?;
+            Ok(SearchHit { kind: "task", id: row.get(0)?, title: row.get(1)?, snippet: description.chars().take(120).collect() })
+        })?;
+        for hit in rows {
+            let hit = hit?;
+            if !hits.iter().any(|h| h.id == hit.id) && hits.len() < limit {
+                hits.push(hit);
+            }
+        }
+    }
+    Ok(hits)
 }
 
 fn like_pattern(input: &str) -> String {

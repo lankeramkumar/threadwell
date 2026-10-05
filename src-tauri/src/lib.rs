@@ -1,6 +1,7 @@
 //! Threadwell desktop backend. The frontend talks only to the typed commands in
 //! `commands`; storage, validation and file access live behind them.
 
+mod ai;
 mod commands;
 mod db;
 mod error;
@@ -25,6 +26,19 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            ai::commands::ai_get_status,
+            ai::commands::ai_save_config,
+            ai::commands::ai_chat_send,
+            ai::commands::ai_page_action,
+            ai::commands::ai_cancel,
+            ai::commands::ai_list_conversations,
+            ai::commands::ai_get_conversation,
+            ai::commands::ai_list_runs,
+            ai::commands::ai_run_trace,
+            ai::commands::ai_list_proposals,
+            ai::commands::ai_apply_proposal,
+            ai::commands::ai_reject_proposal,
+            ai::commands::ai_undo_proposal,
             commands::app_status,
             commands::create_workspace,
             commands::open_workspace,

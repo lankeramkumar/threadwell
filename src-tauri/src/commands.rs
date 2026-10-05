@@ -4,9 +4,11 @@
 //! Commands are `async` so SQLite work runs on the async runtime, not the UI thread.
 //! Locks are never held across `.await` points.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -22,24 +24,47 @@ use crate::workspace::{self, Active, WorkspaceInfo};
 
 const LAST_WORKSPACE_FILE: &str = "last-workspace.txt";
 
+/// Shared application state. The workspace sits behind an `Arc` so AI worker threads can
+/// take short locks for tool calls. Locks are never held while waiting on a model.
 pub struct AppState {
-    active: Mutex<Option<Active>>,
-    config_dir: PathBuf,
+    pub active: Arc<Mutex<Option<Active>>>,
+    pub config_dir: PathBuf,
+    pub runs: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
 }
 
 impl AppState {
     pub fn new(config_dir: PathBuf) -> Self {
-        Self { active: Mutex::new(None), config_dir }
+        Self {
+            active: Arc::new(Mutex::new(None)),
+            config_dir,
+            runs: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Cancels every in-flight AI run. Used when the workspace changes so runs cannot
+    /// write into a different workspace.
+    pub fn cancel_all_runs(&self) {
+        if let Ok(runs) = self.runs.lock() {
+            for flag in runs.values() {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
     }
 }
 
-fn with_workspace<T>(state: &AppState, f: impl FnOnce(&mut Active) -> AppResult<T>) -> AppResult<T> {
-    let mut guard = state
-        .active
+pub fn with_active<T>(
+    active: &Mutex<Option<Active>>,
+    f: impl FnOnce(&mut Active) -> AppResult<T>,
+) -> AppResult<T> {
+    let mut guard = active
         .lock()
         .map_err(|_| AppError::Validation("Internal state error. Restart Threadwell.".into()))?;
     let active = guard.as_mut().ok_or(AppError::NoWorkspace)?;
     f(active)
+}
+
+fn with_workspace<T>(state: &AppState, f: impl FnOnce(&mut Active) -> AppResult<T>) -> AppResult<T> {
+    with_active(&state.active, f)
 }
 
 fn remember(state: &AppState, root: &Path) {
@@ -49,6 +74,7 @@ fn remember(state: &AppState, root: &Path) {
 }
 
 fn install(state: &AppState, active: Active) -> WorkspaceInfo {
+    state.cancel_all_runs();
     remember(state, &active.root);
     let info = active.info.clone();
     if let Ok(mut guard) = state.active.lock() {

@@ -156,7 +156,7 @@ pub fn create(conn: &Connection, ws: &str, title: &str, parent: Option<&str>) ->
     let body = markdown::empty_doc();
     let body_json = validate_body(&body)?;
     let position = next_position(conn, ws, parent)?;
-    let tx = conn.unchecked_transaction()?;
+    let tx = crate::db::Tx::begin(conn)?;
     tx.execute(
         "INSERT INTO pages (id, workspace_id, parent_id, title, body_json, revision, position, is_favorite, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, 0, ?7, ?7)",
@@ -179,7 +179,7 @@ pub fn update(
     let title = util::validate_line(title, "Title", MAX_TITLE_CHARS)?;
     let body_json = validate_body(body)?;
     ensure_live(conn, ws, id)?;
-    let tx = conn.unchecked_transaction()?;
+    let tx = crate::db::Tx::begin(conn)?;
     let current: i64 = tx.query_row("SELECT revision FROM pages WHERE id = ?1", params![id], |row| row.get(0))?;
     if current != expected_revision {
         return Err(AppError::Conflict(
@@ -272,7 +272,7 @@ pub fn set_favorite(conn: &Connection, ws: &str, id: &str, favorite: bool) -> Ap
 /// Soft-deletes a page and its live descendants, removing them from the search index.
 pub fn trash(conn: &Connection, ws: &str, id: &str) -> AppResult<usize> {
     ensure_live(conn, ws, id)?;
-    let tx = conn.unchecked_transaction()?;
+    let tx = crate::db::Tx::begin(conn)?;
     let ids = descendant_ids(&tx, id)?;
     let now = util::now();
     for page_id in &ids {
@@ -304,7 +304,7 @@ fn descendant_ids(conn: &Connection, root: &str) -> AppResult<Vec<String>> {
 /// Restores a trashed page. If its parent is still trashed, it becomes a top-level page.
 pub fn restore(conn: &Connection, ws: &str, id: &str) -> AppResult<()> {
     util::validate_id(id)?;
-    let tx = conn.unchecked_transaction()?;
+    let tx = crate::db::Tx::begin(conn)?;
     let row: Option<(Option<String>, String, String)> = tx
         .query_row(
             "SELECT parent_id, title, body_json FROM pages

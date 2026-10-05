@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::path::Path;
 use std::time::Duration;
 
@@ -9,7 +10,10 @@ pub const DB_FILE: &str = "threadwell.db";
 pub const ATTACHMENTS_DIR: &str = "attachments";
 
 /// Ordered, append-only migrations. Index + 1 is the schema version.
-const MIGRATIONS: &[&str] = &[include_str!("../migrations/0001_init.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("../migrations/0001_init.sql"),
+    include_str!("../migrations/0002_ai.sql"),
+];
 
 pub fn schema_version_latest() -> i64 {
     MIGRATIONS.len() as i64
@@ -46,4 +50,72 @@ pub fn quick_check(conn: &Connection) -> AppResult<()> {
         return validation("The workspace database failed an integrity check");
     }
     Ok(())
+}
+
+/// A transaction that nests safely. At top level it is `BEGIN IMMEDIATE`; inside another
+/// `Tx` it becomes a savepoint. Dropping without `commit` rolls back.
+pub struct Tx<'a> {
+    conn: &'a Connection,
+    savepoint: bool,
+    finished: bool,
+}
+
+impl<'a> Tx<'a> {
+    pub fn begin(conn: &'a Connection) -> rusqlite::Result<Self> {
+        let savepoint = !conn.is_autocommit();
+        conn.execute_batch(if savepoint { "SAVEPOINT threadwell_sp" } else { "BEGIN IMMEDIATE" })?;
+        Ok(Self { conn, savepoint, finished: false })
+    }
+
+    pub fn commit(mut self) -> rusqlite::Result<()> {
+        self.conn.execute_batch(if self.savepoint {
+            "RELEASE threadwell_sp"
+        } else {
+            "COMMIT"
+        })?;
+        self.finished = true;
+        Ok(())
+    }
+}
+
+impl Drop for Tx<'_> {
+    fn drop(&mut self) {
+        if !self.finished {
+            let sql = if self.savepoint {
+                "ROLLBACK TO threadwell_sp; RELEASE threadwell_sp"
+            } else {
+                "ROLLBACK"
+            };
+            let _ = self.conn.execute_batch(sql);
+        }
+    }
+}
+
+impl Deref for Tx<'_> {
+    type Target = Connection;
+    fn deref(&self) -> &Connection {
+        self.conn
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nested_transactions_roll_back_only_the_inner_part() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = open(&dir.path().join("tx.db")).unwrap();
+        migrate(&mut conn).unwrap();
+        let outer = Tx::begin(&conn).unwrap();
+        outer.execute("INSERT INTO settings (key, value) VALUES ('theme', 'dark')", []).unwrap();
+        {
+            let inner = Tx::begin(&outer).unwrap();
+            inner.execute("INSERT INTO settings (key, value) VALUES ('ai.model', 'x')", []).unwrap();
+            // inner dropped without commit: rolled back to its savepoint
+        }
+        outer.commit().unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM settings", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 1);
+    }
 }
