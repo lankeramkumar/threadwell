@@ -21,10 +21,13 @@ interface Props {
   selectedText: string | null;
   pageId: string | null;
   pageTitle: string | null;
-  onOpenPage: (id: string) => void;
+  /** Opens a page. For a linked file, the section the answer drew on is passed too. */
+  onOpenPage: (id: string, section?: string) => void;
   onOpenTasks: () => void;
   onOpenSettings: () => void;
   onDataChanged: () => void;
+  /** Text to place in the question box, from "Ask about this file" and similar buttons. */
+  prefill?: { text: string; nonce: number } | null;
 }
 
 const READINESS_TEXT: Record<AiReadiness, string> = {
@@ -53,6 +56,7 @@ export function AssistantPanel({
   onOpenTasks,
   onOpenSettings,
   onDataChanged,
+  prefill,
 }: Props) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -61,6 +65,11 @@ export function AssistantPanel({
   const [pending, setPending] = useState<Pending | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [input, setInput] = useState('');
+
+  // A question chosen elsewhere (for example "Ask about this file") goes into the box for the user to send.
+  useEffect(() => {
+    if (prefill) setInput(prefill.text);
+  }, [prefill]);
   const [includePage, setIncludePage] = useState(true);
   const [includeSelection, setIncludeSelection] = useState(true);
   const [historyQuery, setHistoryQuery] = useState('');
@@ -432,7 +441,7 @@ function MessageView({
   onOpenTasks,
 }: {
   message: StoredMessage;
-  onOpenPage: (id: string) => void;
+  onOpenPage: (id: string, section?: string) => void;
   onOpenTasks: () => void;
 }) {
   if (message.role === 'user') {
@@ -453,7 +462,7 @@ function MessageView({
               <button
                 type="button"
                 className="link-button"
-                onClick={() => (c.kind === 'page' ? onOpenPage(c.id) : onOpenTasks())}
+                onClick={() => (c.kind === 'page' ? onOpenPage(c.id, c.section ?? undefined) : onOpenTasks())}
               >
                 [{c.n}] {c.title}
               </button>

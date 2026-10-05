@@ -35,6 +35,7 @@ import type {
   WorkspaceListItem,
   SourceInfo,
   SyncReport,
+  DropReport,
 } from './types';
 
 export const api = {
@@ -52,6 +53,7 @@ export const api = {
   sourcesAdd: (path: string) => invoke<SourceInfo>('sources_add', { path }),
   sourcesSync: (id: string) => invoke<SyncReport>('sources_sync', { id }),
   sourcesRemove: (id: string) => invoke<void>('sources_remove', { id }),
+  sourcesDrop: (paths: string[]) => invoke<DropReport>('sources_drop', { paths }),
 
   listPages: () => invoke<PageSummary[]>('list_pages'),
   listTrash: () => invoke<PageSummary[]>('list_trash'),

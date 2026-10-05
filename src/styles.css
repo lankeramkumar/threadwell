@@ -1307,3 +1307,55 @@ mark {
     grid-template-columns: 1fr;
   }
 }
+
+/* Drag and drop, quick questions, and citations that name a section of a linked file. */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border: 3px dashed #4a5bb5;
+  background: rgba(74, 91, 181, 0.12);
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+
+.drop-notice {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 80vw;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border: 1px solid #c9ccd6;
+  border-radius: 8px;
+  background: var(--panel-bg, #ffffff);
+  color: inherit;
+}
+
+.ask-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.section-flash {
+  animation: section-flash 1.8s ease-out;
+}
+
+@keyframes section-flash {
+  from {
+    background: #fff3b0;
+  }
+  to {
+    background: transparent;
+  }
+}

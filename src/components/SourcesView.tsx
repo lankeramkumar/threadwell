@@ -11,6 +11,8 @@ interface Props {
   onOpenPage: (id: string) => void;
   onChanged: () => void;
   onError: (err: unknown) => void;
+  /** Puts a question about a folder in the assistant box. */
+  onAskAbout?: (text: string) => void;
 }
 
 function describe(report: SyncReport): string {
@@ -32,7 +34,7 @@ function describe(report: SyncReport): string {
  * Linked source folders. Each readable file is a read-only page, so the assistant and search use it
  * like any other note. Changes in the folder are picked up while Threadwell is open.
  */
-export function SourcesView({ pages, onOpenPage, onChanged, onError }: Props) {
+export function SourcesView({ pages, onOpenPage, onChanged, onError, onAskAbout }: Props) {
   const [sources, setSources] = useState<SourceInfo[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -154,6 +156,16 @@ export function SourcesView({ pages, onOpenPage, onChanged, onError }: Props) {
               <button type="button" onClick={() => void sync(source)} disabled={busy !== null}>
                 {busy === source.id ? 'Syncing…' : 'Sync now'}
               </button>
+              {onAskAbout && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onAskAbout(`Summarise the ${source.name} folder: what it contains and how its parts fit together.`)
+                  }
+                >
+                  Ask about this folder
+                </button>
+              )}
               <button type="button" onClick={() => setExpanded(isOpen ? null : source.id)} aria-expanded={isOpen}>
                 {isOpen ? 'Hide files' : `Show files (${files.length})`}
               </button>

@@ -92,7 +92,8 @@ export function Onboarding({ onReady, onError, error }: Props) {
         {mode === 'create' && (
           <label className="checkbox">
             <input type="checkbox" checked={withSample} onChange={(e) => setWithSample(e.target.checked)} />
-            Include the labelled sample project (a few notes, tasks and a meeting transcript)
+            Include sample notes, tasks and a meeting transcript, plus a small linked sample project of code and
+            documents you can ask about
           </label>
         )}
 

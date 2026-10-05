@@ -38,6 +38,10 @@ interface Props {
   onNavigate: (id: string) => void;
   onChanged: () => void;
   onTrashed: () => void;
+  /** A section heading to bring into view, from a citation such as "Lines 41–80". */
+  section?: string;
+  /** Puts a question in the assistant box, from the buttons on a linked file. */
+  onAskAbout?: (text: string) => void;
 }
 
 /**
@@ -45,7 +49,16 @@ interface Props {
  * fresh editor state. Edits are saved after a short pause and retried on failure.
  * A saved revision that no longer matches the database is reported as a conflict.
  */
-export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed, onSelectionChange }: Props) {
+export function PageEditor({
+  page,
+  pages,
+  onNavigate,
+  onChanged,
+  onTrashed,
+  onSelectionChange,
+  section,
+  onAskAbout,
+}: Props) {
   const [title, setTitle] = useState(page.title);
   const [favorite, setFavorite] = useState(page.isFavorite);
   const [aiExcluded, setAiExcluded] = useState(page.aiExcluded);
@@ -161,6 +174,19 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed, onSe
       onSelectionChange(null);
     };
   }, [editor, onSelectionChange]);
+
+  // A citation can name a section ("Lines 41–80"). Bring its heading into view once the editor has it.
+  useEffect(() => {
+    if (!section) return;
+    const surface = document.querySelector('.editor-surface');
+    const heading = [...(surface?.querySelectorAll('h1, h2, h3, h4') ?? [])].find(
+      (h) => h.textContent?.trim() === section,
+    );
+    if (heading) {
+      heading.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      heading.classList.add('section-flash');
+    }
+  }, [section, editor, page.id]);
 
   const active = useEditorState({
     editor,
@@ -286,10 +312,31 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed, onSe
       </nav>
 
       {readOnly && (
-        <p role="note" className="notice small">
-          Read only. This file comes from a linked folder: <code>{page.sourcePath}</code>. Change it in that folder and
-          Threadwell will pick up the change.
-        </p>
+        <div className="notice small">
+          <p role="note">
+            Read only. This file comes from a linked folder: <code>{page.sourcePath}</code>. Change it in that folder
+            and Threadwell will pick up the change.
+          </p>
+          {onAskAbout && (
+            <div className="ask-row">
+              <button
+                type="button"
+                onClick={() => onAskAbout(`Summarise ${page.sourcePath}: what it does and how it fits in the project.`)}
+              >
+                Summarise this file
+              </button>
+              <button
+                type="button"
+                onClick={() => onAskAbout(`List the TODOs, open questions and risks in ${page.sourcePath}.`)}
+              >
+                List open items
+              </button>
+              <button type="button" onClick={() => onAskAbout(`Explain how ${page.sourcePath} works, step by step.`)}>
+                Explain how it works
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="page-header">

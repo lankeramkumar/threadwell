@@ -1,6 +1,7 @@
 ﻿import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './lib/api';
 import { messageFor } from './lib/pure';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import type { Page, PageSummary, Project, WorkspaceInfo } from './lib/types';
 import { applyTheme } from './lib/theme';
 import { Onboarding } from './components/Onboarding';
@@ -18,7 +19,7 @@ const RecipesView = lazy(() => import('./components/RecipesView').then((m) => ({
 
 export type View =
   | { kind: 'home' }
-  | { kind: 'page'; id: string }
+  | { kind: 'page'; id: string; section?: string }
   | { kind: 'tasks'; projectId: string | null }
   | { kind: 'search'; query: string }
   | { kind: 'settings' }
@@ -123,7 +124,60 @@ export function App() {
     [reportError],
   );
 
-  const openPage = useCallback((id: string) => go({ kind: 'page', id }), [go]);
+  const openPage = useCallback((id: string, section?: string) => go({ kind: 'page', id, section }), [go]);
+
+  // Text for the assistant box, set by "Ask about this file" and similar buttons. The nonce makes
+  // the same question selectable twice.
+  const [prefill, setPrefill] = useState<{ text: string; nonce: number } | null>(null);
+  const askAbout = useCallback((text: string) => setPrefill({ text, nonce: Date.now() }), []);
+
+  // Files and folders dropped on the window: folders are linked, Markdown and text files imported.
+  const [dragging, setDragging] = useState(false);
+  const [dropNotice, setDropNotice] = useState<string | null>(null);
+  const handleDrop = useCallback(
+    async (paths: string[]) => {
+      try {
+        const report = await api.sourcesDrop(paths);
+        const parts: string[] = [];
+        if (report.linked.length) parts.push(`Linked ${report.linked.join(', ')}.`);
+        if (report.imported.length) parts.push(`Imported ${report.imported.join(', ')}.`);
+        if (report.skipped.length) parts.push(report.skipped.join(' '));
+        setDropNotice(parts.join(' ') || 'Nothing was dropped.');
+        await refreshLists();
+        if (report.linked.length) go({ kind: 'sources' });
+      } catch (err) {
+        setDropNotice(messageFor(err));
+      }
+    },
+    [go, refreshLists],
+  );
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    let cancelled = false;
+    try {
+      void getCurrentWebview()
+        .onDragDropEvent((event) => {
+          const payload = event.payload;
+          if (payload.type === 'enter' || payload.type === 'over') setDragging(true);
+          else if (payload.type === 'leave') setDragging(false);
+          else if (payload.type === 'drop') {
+            setDragging(false);
+            void handleDrop(payload.paths);
+          }
+        })
+        .then((unlisten) => {
+          if (cancelled) unlisten();
+          else off = unlisten;
+        })
+        .catch(() => undefined);
+    } catch {
+      // Not running inside the desktop shell (for example in tests). Drops are simply not handled.
+    }
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  }, [handleDrop]);
 
   // Opening a page in another workspace switches workspace, then opens the page once it is loaded.
   const openElsewhere = useCallback(
@@ -219,6 +273,19 @@ export function App() {
 
   return (
     <div className={assistantOpen ? 'app-shell with-assistant' : 'app-shell'}>
+      {dragging && (
+        <div className="drop-overlay" aria-hidden="true">
+          Drop a folder to link it, or a Markdown or text file to import it
+        </div>
+      )}
+      {dropNotice && (
+        <div className="drop-notice" role="status">
+          <span>{dropNotice}</span>
+          <button type="button" onClick={() => setDropNotice(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
       <Sidebar
         workspaceName={workspace.name}
         workspaceId={workspace.id}
@@ -262,6 +329,8 @@ export function App() {
             <PageEditor
               key={`${page.id}:${loadNonce}`}
               page={page}
+              section={view.kind === 'page' ? view.section : undefined}
+              onAskAbout={askAbout}
               pages={pages}
               onNavigate={openPage}
               onChanged={() => void refreshLists().catch(reportError)}
@@ -312,6 +381,7 @@ export function App() {
             <SourcesView
               pages={pages}
               onOpenPage={openPage}
+              onAskAbout={askAbout}
               onChanged={() => void refreshLists().catch(reportError)}
               onError={reportError}
             />
@@ -331,6 +401,7 @@ export function App() {
           pageId={view.kind === 'page' ? view.id : null}
           pageTitle={view.kind === 'page' && page ? page.title : null}
           selectedText={selectedText}
+          prefill={prefill}
           onOpenPage={openPage}
           onOpenTasks={() => go({ kind: 'tasks', projectId: null })}
           onOpenSettings={() => go({ kind: 'settings' })}

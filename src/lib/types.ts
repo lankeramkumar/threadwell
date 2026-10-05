@@ -170,6 +170,15 @@ export interface Citation {
   kind: 'page' | 'task';
   id: string;
   title: string;
+  /** For a linked file: the section the answer drew on, such as "Lines 41–80". */
+  section: string | null;
+}
+
+/** What a drop on the window did with each path. */
+export interface DropReport {
+  linked: string[];
+  imported: string[];
+  skipped: string[];
 }
 
 export interface StoredMessage {

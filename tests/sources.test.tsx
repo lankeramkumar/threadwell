@@ -69,4 +69,19 @@ describe('SourcesView', () => {
       vi.mocked(invoke).mock.calls.some((c) => c[0] === 'sources_sync' && (c[1] as { id: string }).id === 's1'),
     ).toBe(true);
   });
+
+  it('puts a question about the folder into the assistant box', async () => {
+    const onAskAbout = vi.fn();
+    render(
+      <SourcesView
+        pages={[file]}
+        onOpenPage={() => undefined}
+        onChanged={() => undefined}
+        onError={() => undefined}
+        onAskAbout={onAskAbout}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask about this folder' }));
+    expect(onAskAbout).toHaveBeenCalledWith(expect.stringContaining('payments folder'));
+  });
 });
