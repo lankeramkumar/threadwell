@@ -460,3 +460,78 @@ fn due_dates_are_kept_only_when_a_workspace_page_states_them() {
     assert_eq!(all[1].title, "Launch review");
     assert_eq!(all[1].due_date.as_deref(), Some("2026-10-09"));
 }
+
+// ---------------------------------------------------------------------------
+// Multi-agent graph: scripted roles
+// ---------------------------------------------------------------------------
+
+/// A non-streaming reply, as the planner and writer receive it.
+fn once(text: &str) -> String {
+    format!("{}\n", json!({ "model": "test", "message": { "role": "assistant", "content": text }, "done": true }))
+}
+
+fn run_graph(f: &Fixture, replies: Vec<String>, allow_actions: bool, sources_seed: Vec<tools::Source>) -> (Outcome, Vec<Proposal>) {
+    let base = scripted_ollama(replies);
+    let client = OllamaClient::new(&base, "test");
+    let flag = AtomicBool::new(false);
+    let mut host = TestHost { conn: &f.conn, ws: &f.ws, proposals: Vec::new(), deltas: String::new() };
+    let turn = super::graph::Turn { question: "question", context: "", history: &[], allow_actions };
+    let outcome = super::graph::run_multi(&client, &mut host, &turn, sources_seed, &flag);
+    (outcome, host.proposals)
+}
+
+#[test]
+fn graph_writer_abstains_without_citing_when_research_finds_nothing() {
+    let f = fixture();
+    let replies = vec![once("{\"needs_action\": false}"), text_line("No matching pages."), once("The workspace does not contain that answer.")];
+    let (outcome, _) = run_graph(&f, replies, true, Vec::new());
+    match outcome {
+        Outcome::Completed { content, sources, proposals, .. } => {
+            assert!(sources.is_empty());
+            assert_eq!(proposals, 0);
+            assert!(content.contains("does not contain"));
+            assert!(!content.contains("[cite:"));
+        }
+        other => panic!("expected a completed answer, got {other:?}"),
+    }
+}
+
+#[test]
+fn graph_action_path_records_a_proposal_that_is_not_applied() {
+    let f = fixture();
+    let page = page_with(&f, "Launch plan", "## Plan\n\nShip in March.");
+    let seed = vec![tools::Source { kind: "page".into(), id: page.id.clone(), title: page.title.clone() }];
+    let replies = vec![
+        once("{\"needs_action\": true}"),
+        text_line("Launch plan says ship in March."),
+        once(&format!("The launch plan says ship in March. [cite:page:{}]", page.id)),
+        tool_line("propose_create_page", json!({ "title": "March notes", "markdown": "Ship in March." })),
+        text_line("Proposed."),
+    ];
+    let (outcome, proposals) = run_graph(&f, replies, true, seed);
+    match outcome {
+        Outcome::Completed { content, proposals: count, .. } => {
+            assert_eq!(count, 1);
+            assert!(content.contains("Nothing has been saved"));
+        }
+        other => panic!("expected a completed answer, got {other:?}"),
+    }
+    assert_eq!(proposals.len(), 1);
+    let stored: i64 = f.conn.query_row("SELECT COUNT(*) FROM pages WHERE title = 'March notes'", [], |r| r.get(0)).unwrap();
+    assert_eq!(stored, 0, "a proposal does not create the page");
+}
+
+#[test]
+fn graph_skips_the_actor_when_the_turn_reaches_other_workspaces() {
+    let f = fixture();
+    let replies = vec![once("{\"needs_action\": true}"), text_line("Some notes."), once("Here is what the other workspace says.")];
+    let (outcome, proposals) = run_graph(&f, replies, false, Vec::new());
+    match outcome {
+        Outcome::Completed { content, proposals: count, .. } => {
+            assert_eq!(count, 0);
+            assert!(content.contains("open workspace"));
+        }
+        other => panic!("expected a completed answer, got {other:?}"),
+    }
+    assert!(proposals.is_empty());
+}

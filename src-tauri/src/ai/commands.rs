@@ -27,6 +27,7 @@ use crate::markdown;
 use crate::pages;
 use crate::util;
 use crate::workspace::Active;
+use crate::workspaces;
 
 const MAX_MESSAGE_CHARS: usize = 8_000;
 const MAX_PAGE_CONTEXT_CHARS: usize = 4_000;
@@ -265,9 +266,14 @@ struct ChatJob {
     history: Vec<Value>,
     page_context: Option<String>,
     retrieval: RetrievalSettings,
+    /// Other workspaces this turn reads from, read-only. Empty for the open workspace alone.
+    extra: Vec<workspaces::Entry>,
     cancel: Arc<AtomicBool>,
     client: OllamaClient,
 }
+
+/// Pages from other workspaces are read-only, and each hit's title names its workspace.
+const REMOTE_LIMIT: usize = 4;
 
 struct Retrieval {
     block: String,
@@ -294,7 +300,7 @@ fn retrieve_for_turn(job: &ChatJob, active: &SharedActive) -> Retrieval {
     } else if mode == knowledge::Mode::Hybrid {
         mode = knowledge::Mode::Lexical;
     }
-    let hits = with_active(active, |a| {
+    let mut hits = with_active(active, |a| {
         if a.info.id != job.ws {
             return Ok(Vec::new());
         }
@@ -310,10 +316,25 @@ fn retrieve_for_turn(job: &ChatJob, active: &SharedActive) -> Retrieval {
         )
     })
     .unwrap_or_default();
-    let seeds: Vec<Source> = hits
+    let mut seeds: Vec<Source> = hits
         .iter()
         .map(|h| Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone() })
         .collect();
+    // Other workspaces are searched by keyword only, each on its own read-only connection.
+    for entry in &job.extra {
+        let Ok(conn) = workspaces::open_read_only(&entry.path) else { continue };
+        let Ok(ws_id) = workspaces::workspace_id(&conn) else { continue };
+        if ws_id == job.ws {
+            continue;
+        }
+        let found = knowledge::retrieve(&conn, &ws_id, &job.message, None, "", knowledge::Mode::Lexical, job.retrieval.weights, REMOTE_LIMIT)
+            .unwrap_or_default();
+        for mut hit in found {
+            hit.title = format!("[Workspace: {}] {}", entry.name, hit.title);
+            seeds.push(Source { kind: "remote_page".into(), id: hit.page_id.clone(), title: hit.title.clone() });
+            hits.push(hit);
+        }
+    }
     let mut block = retrieved_block(&hits);
     if let Some(note) = note {
         block = format!("{note}\n{block}");
@@ -342,7 +363,13 @@ fn run_chat_worker(app: AppHandle, active: SharedActive, runs: SharedRuns, job: 
     let outcome = if job.multi {
         let context = format!("{}
 {}", retrieval.block, job.page_context.as_deref().unwrap_or(""));
-        super::graph::run_multi(&job.client, &mut host, &job.message, &context, retrieval.seeds, &job.cancel)
+        let turn = super::graph::Turn {
+            question: &job.message,
+            context: &context,
+            history: &job.history,
+            allow_actions: job.extra.is_empty(),
+        };
+        super::graph::run_multi(&job.client, &mut host, &turn, retrieval.seeds, &job.cancel)
     } else {
         agent::run_loop(&job.client, &mut host, messages, Some(&tools), &job.cancel, retrieval.seeds)
     };
@@ -512,6 +539,9 @@ pub struct ChatRequest {
     pub run_id: Option<String>,
     /// Text the user selected in the open page, sent only when they asked for it.
     pub selected_text: Option<String>,
+    /// "current" (default), "all", or a workspace name or path. When absent, the message is checked
+    /// for "all workspaces" or a workspace name.
+    pub scope: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -561,9 +591,17 @@ pub async fn ai_chat_send(app: AppHandle, state: State<'_, AppState>, request: C
     let message = check_text(&request.message, MAX_MESSAGE_CHARS, "Message")?;
     let active = state.active.clone();
     let runs = state.runs.clone();
+    let config_dir = state.config_dir.clone();
     let prepared = with_active(&active, |a| {
         let ws = a.info.id.clone();
         let cfg = ready_config(&a.conn)?;
+        let active_path = a.root.display().to_string();
+        let entries = workspaces::load(&config_dir);
+        let scope = workspaces::scope_for(request.scope.as_deref(), &message, &entries, &active_path);
+        let extra: Vec<workspaces::Entry> = workspaces::scope_entries(&scope, &entries)
+            .into_iter()
+            .filter(|e| e.path != active_path)
+            .collect();
         let conversation_id = match &request.conversation_id {
             Some(id) => {
                 util::validate_id(id)?;
@@ -625,9 +663,9 @@ Selected passage:
         )?;
         let run_id = choose_run_id(&request.run_id)?;
         insert_run(&a.conn, &ws, &run_id, "chat", Some(&conversation_id), request.page_id.as_deref(), &cfg)?;
-        Ok((ws, cfg, conversation_id, run_id, history, context))
+        Ok((ws, cfg, conversation_id, run_id, history, context, extra))
     })?;
-    let (ws, cfg, conversation_id, run_id, history, page_context) = prepared;
+    let (ws, cfg, conversation_id, run_id, history, page_context, extra) = prepared;
     let cancel = Arc::new(AtomicBool::new(false));
     register_run(&runs, &run_id, cancel.clone());
     let job = ChatJob {
@@ -643,6 +681,7 @@ Selected passage:
             mode: knowledge::Mode::parse(&cfg.retrieval_mode).unwrap_or(knowledge::Mode::Hybrid),
             weights: knowledge::Weights { lexical: cfg.weight_lexical, vector: cfg.weight_vector },
         },
+        extra,
         cancel: cancel.clone(),
         client: OllamaClient::new(&cfg.endpoint, &cfg.model),
     };

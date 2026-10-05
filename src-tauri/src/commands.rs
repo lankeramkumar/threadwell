@@ -76,10 +76,12 @@ fn remember(state: &AppState, root: &Path) {
         .and_then(|_| fs::write(state.config_dir.join(LAST_WORKSPACE_FILE), root.display().to_string()));
 }
 
-fn install(state: &AppState, active: Active) -> WorkspaceInfo {
+pub(crate) fn install(state: &AppState, active: Active) -> WorkspaceInfo {
     state.cancel_all_runs();
     remember(state, &active.root);
     let info = active.info.clone();
+    // The registry lists every workspace the user has opened, so the switcher can show them.
+    let _ = crate::workspaces::upsert(&state.config_dir, &info.name, &info.path);
     if let Ok(mut guard) = state.active.lock() {
         *guard = Some(active);
     }

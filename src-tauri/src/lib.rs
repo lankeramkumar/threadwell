@@ -20,6 +20,7 @@ mod telemetry;
 mod transfer;
 mod util;
 mod workspace;
+mod workspaces;
 
 use commands::AppState;
 use tauri::Manager;
@@ -84,6 +85,10 @@ pub fn run() {
             commands::app_status,
             commands::create_workspace,
             commands::open_workspace,
+            workspaces::workspaces_list,
+            workspaces::workspace_switch,
+            workspaces::workspace_rename,
+            workspaces::workspace_forget,
             commands::list_pages,
             commands::list_trash,
             commands::get_page,

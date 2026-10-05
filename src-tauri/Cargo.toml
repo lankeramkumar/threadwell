@@ -1,6 +1,6 @@
 [package]
 name = "threadwell"
-version = "0.1.3"
+version = "0.1.4"
 description = "Threadwell: a local-first desktop workspace for notes, tasks and AI-assisted work"
 edition = "2021"
 rust-version = "1.85"

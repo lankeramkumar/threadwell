@@ -242,7 +242,13 @@ fn eval_live() {
         let flag = AtomicBool::new(false);
         let started = Instant::now();
         let outcome = if std::env::var("EVAL_ARCH").as_deref() == Ok("multi") {
-            super::graph::run_multi(&client, &mut host, &case.question, &retrieved_block(&retrieved), seeds, &flag)
+            super::graph::run_multi(
+                &client,
+                &mut host,
+                &super::graph::Turn { question: &case.question, context: &retrieved_block(&retrieved), history: &[], allow_actions: true },
+                seeds,
+                &flag,
+            )
         } else {
             agent::run_loop(&client, &mut host, initial, Some(&tools_schema), &flag, seeds)
         };
