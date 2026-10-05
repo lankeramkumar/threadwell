@@ -1,0 +1,18 @@
+# Staffing and the weekly rota
+
+Weekend mornings are short-staffed at the Riverside shop.
+
+## Key points
+
+- Riverside needs two extra bakers on Saturday and Sunday mornings.
+- New starters finish their food hygiene course in their first week.
+- Rota changes must be posted 48 hours ahead.
+
+## Tasks
+
+- [ ] Advertise two weekend baker roles
+- [ ] Book the hygiene course places
+
+## Decision
+
+Trial the Saturday shift pattern for four weeks.

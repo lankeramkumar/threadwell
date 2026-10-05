@@ -392,3 +392,32 @@ mod tests {
         assert_eq!(imported.imported, 0);
     }
 }
+
+#[cfg(test)]
+mod demo_project_tests {
+    use super::*;
+    use crate::db;
+
+    #[test]
+    fn demo_project_imports_every_note_format() {
+        let demo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("demo-project");
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = db::open(&dir.path().join("demo.db")).unwrap();
+        db::migrate(&mut conn).unwrap();
+        let ws = util::new_id();
+        conn.execute("INSERT INTO workspace_meta (id, name, created_at) VALUES (?1, 'Demo', ?2)", params![ws, util::now()]).unwrap();
+
+        let root = demo.display().to_string();
+        let scanned = scan(&conn, &ws, &root).unwrap();
+        let notes: Vec<&ScanItem> = scanned.items.iter().filter(|i| i.status == "new").collect();
+        assert_eq!(notes.len(), 40, "10 each of md, txt, docx and pdf");
+        let paths: Vec<String> = notes.iter().map(|i| i.relative_path.clone()).collect();
+        let report = import(&conn, &ws, &root, &paths, None).unwrap();
+        assert!(report.failed.is_empty(), "failed: {:?}", report.failed);
+        assert_eq!(report.imported, 40);
+        assert_eq!(pages::list(&conn, &ws).unwrap().len(), 40);
+
+        let again = import(&conn, &ws, &root, &paths, None).unwrap();
+        assert_eq!((again.imported, again.skipped), (0, 40));
+    }
+}

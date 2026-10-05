@@ -1,0 +1,31 @@
+1
+00:00:05,000 --> 00:00:17,000
+Ana: Welcome to the rota planning. Our summary: Weekend mornings are short-staffed at the Riverside shop.
+
+2
+00:00:20,000 --> 00:00:32,000
+Ana: Riverside needs two extra bakers on Saturday and Sunday mornings.
+
+3
+00:00:42,000 --> 00:00:54,000
+Dev: New starters finish their food hygiene course in their first week.
+
+4
+00:01:04,000 --> 00:01:16,000
+Ana: Rota changes must be posted 48 hours ahead.
+
+5
+00:01:26,000 --> 00:01:38,000
+Dev: Decision: Trial the Saturday shift pattern for four weeks.
+
+6
+00:01:44,000 --> 00:01:56,000
+Ana: Action: Advertise two weekend baker roles. Please confirm by Friday.
+
+7
+00:01:59,000 --> 00:02:11,000
+Ana: Action: Book the hygiene course places. Please confirm by Friday.
+
+8
+00:02:14,000 --> 00:02:26,000
+Dev: Thanks. Summary sent after the call.

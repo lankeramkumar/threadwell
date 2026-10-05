@@ -6,3 +6,7 @@ package-lock.json
 intent.md
 eval/thresholds.json
 eval/reports
+samples/demo-project/notes-md
+samples/demo-project/notes-txt
+samples/demo-project/meetings-vtt
+samples/demo-project/meetings-srt

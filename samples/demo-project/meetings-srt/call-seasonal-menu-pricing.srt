@@ -1,0 +1,31 @@
+1
+00:00:05,000 --> 00:00:17,000
+Chris: Welcome to the menu pricing call. Our summary: The autumn menu needs prices that stay within our margin target.
+
+2
+00:00:20,000 --> 00:00:32,000
+Chris: Croissant price is 3.20 pounds in the current draft.
+
+3
+00:00:42,000 --> 00:00:54,000
+Ana: Finance asked for 3.50 pounds to protect margin on butter.
+
+4
+00:01:04,000 --> 00:01:16,000
+Chris: The pumpkin loaf is priced at 4.10 pounds in every shop.
+
+5
+00:01:26,000 --> 00:01:38,000
+Ana: Decision: Croissant price is still open: 3.20 or 3.50 pounds.
+
+6
+00:01:44,000 --> 00:01:56,000
+Chris: Action: Agree the croissant price with finance. Please confirm by Friday.
+
+7
+00:01:59,000 --> 00:02:11,000
+Chris: Action: Print the autumn menu boards. Please confirm by Friday.
+
+8
+00:02:14,000 --> 00:02:26,000
+Ana: Thanks. Summary sent after the call.

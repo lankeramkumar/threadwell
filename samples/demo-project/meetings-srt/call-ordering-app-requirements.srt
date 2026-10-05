@@ -1,0 +1,35 @@
+1
+00:00:05,000 --> 00:00:17,000
+Ana: Welcome to the weekly operations. Our summary: Customers order ahead for pickup from any of our three shops.
+
+2
+00:00:20,000 --> 00:00:32,000
+Ana: Customers choose a shop, a pickup time and a basket of items.
+
+3
+00:00:42,000 --> 00:00:54,000
+Ben: Orders can be changed until two hours before pickup.
+
+4
+00:01:04,000 --> 00:01:16,000
+Ana: The shop sees each order on a tablet in the kitchen.
+
+5
+00:01:26,000 --> 00:01:38,000
+Ben: Payment is taken at checkout through the card provider.
+
+6
+00:01:48,000 --> 00:02:00,000
+Ben: Decision: Pickup only for version one. Delivery comes later.
+
+7
+00:02:06,000 --> 00:02:18,000
+Ana: Action: Write the order flow screens. Please confirm by Friday.
+
+8
+00:02:21,000 --> 00:02:33,000
+Ana: Action: Agree the cut-off rule with the shop managers. Please confirm by Friday.
+
+9
+00:02:36,000 --> 00:02:48,000
+Ben: Thanks. Summary sent after the call.

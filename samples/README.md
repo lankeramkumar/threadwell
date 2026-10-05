@@ -20,3 +20,8 @@ These files are for trying Threadwell without your own data. They describe a fic
    Choose **Run now**, then review the draft it creates.
 
 The assistant needs a local model. The Word guide explains setup. Without a model, every other feature still works.
+
+## Full demo project
+
+`demo-project/` holds 60 realistic files (10 each of Markdown, text, Word, PDF, WebVTT and SRT) about a fictional
+bakery chain. Its own README has a 20-minute walkthrough that covers every feature.

@@ -1,0 +1,11 @@
+LOYALTY PROGRAMME DESIGN
+
+Customers earn a stamp for each 10 pounds spent, and a free loaf at ten stamps.
+
+* Stamps are recorded through the app, with a paper card as a fallback.
+* Free loaves expire after 60 days.
+* The programme needs a privacy notice before launch.
+
+Tasks: Draft the privacy notice; Test the stamp redemption at the till.
+
+Decision: Paper cards stay available for at least a year.

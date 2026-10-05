@@ -1,0 +1,31 @@
+1
+00:00:05,000 --> 00:00:17,000
+Chris: Welcome to the campaign kickoff. Our summary: The campaign focuses on the pumpkin loaf and the new ordering app.
+
+2
+00:00:20,000 --> 00:00:32,000
+Chris: Launch week is 3 to 9 November.
+
+3
+00:00:42,000 --> 00:00:54,000
+Dev: Budget is 2,400 pounds, split between local radio and social posts.
+
+4
+00:01:04,000 --> 00:01:16,000
+Chris: Each shop gets its own sign-up code for the app.
+
+5
+00:01:26,000 --> 00:01:38,000
+Dev: Decision: Radio slots are booked for the first launch week only.
+
+6
+00:01:44,000 --> 00:01:56,000
+Chris: Action: Brief the social media agency. Please confirm by Friday.
+
+7
+00:01:59,000 --> 00:02:11,000
+Chris: Action: Create the sign-up codes for each shop. Please confirm by Friday.
+
+8
+00:02:14,000 --> 00:02:26,000
+Dev: Thanks. Summary sent after the call.

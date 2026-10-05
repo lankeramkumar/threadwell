@@ -836,3 +836,24 @@ mod sample_file_tests {
         assert!(text.contains("Priya"));
     }
 }
+
+#[cfg(test)]
+mod demo_transcript_tests {
+    use super::*;
+
+    #[test]
+    fn every_demo_transcript_parses() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("demo-project");
+        let mut count = 0;
+        for sub in ["meetings-vtt", "meetings-srt"] {
+            for entry in std::fs::read_dir(dir.join(sub)).unwrap() {
+                let text = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+                let segments = parse_transcript(&text).unwrap();
+                assert!(segments.len() >= 8, "too few segments in a demo transcript");
+                assert!(segments.iter().all(|s| s.start_ms.is_some()));
+                count += 1;
+            }
+        }
+        assert_eq!(count, 20);
+    }
+}

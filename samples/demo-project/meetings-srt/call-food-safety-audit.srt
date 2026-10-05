@@ -1,0 +1,31 @@
+1
+00:00:05,000 --> 00:00:17,000
+Ben: Welcome to the audit follow-up. Our summary: The quarterly audit found two items to fix across the three shops.
+
+2
+00:00:20,000 --> 00:00:32,000
+Ben: Chiller temperature log was missing for three days at the Harbour shop.
+
+3
+00:00:42,000 --> 00:00:54,000
+Ana: Allergen labels on the seeded loaves need updating.
+
+4
+00:01:04,000 --> 00:01:16,000
+Ben: All other checks passed with no critical findings.
+
+5
+00:01:26,000 --> 00:01:38,000
+Ana: Decision: Daily chiller checks move to the opening checklist.
+
+6
+00:01:44,000 --> 00:01:56,000
+Ben: Action: Fix the Harbour chiller log routine. Please confirm by Friday.
+
+7
+00:01:59,000 --> 00:02:11,000
+Ben: Action: Update the seeded loaf allergen labels. Please confirm by Friday.
+
+8
+00:02:14,000 --> 00:02:26,000
+Ana: Thanks. Summary sent after the call.

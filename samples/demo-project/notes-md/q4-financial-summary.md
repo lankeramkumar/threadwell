@@ -1,0 +1,18 @@
+# Q4 financial summary
+
+Revenue is ahead of plan by 6 percent, mainly from weekend trade.
+
+## Key points
+
+- Revenue for September was 118,000 pounds against a plan of 111,000.
+- Waste fell from 7 percent to 5 percent of bakery output.
+- Labour cost rose 2 points because of the new weekend shifts.
+
+## Tasks
+
+- [ ] Review the weekend shift cost
+- [ ] Share the waste figures with the shop managers
+
+## Decision
+
+Keep the weekend shift pattern until the next review.
