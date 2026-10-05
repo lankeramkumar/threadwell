@@ -112,8 +112,12 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed, onSe
     [schedule],
   );
 
+  // Pages that mirror a linked source file are read only. Their text changes when the file does.
+  const readOnly = page.sourceId !== null;
+
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({ link: false }),
       Link.configure({
@@ -281,10 +285,18 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed, onSe
         ))}
       </nav>
 
+      {readOnly && (
+        <p role="note" className="notice small">
+          Read only. This file comes from a linked folder: <code>{page.sourcePath}</code>. Change it in that folder and
+          Threadwell will pick up the change.
+        </p>
+      )}
+
       <div className="page-header">
         <input
           className="page-title"
           aria-label="Page title"
+          readOnly={readOnly}
           value={title}
           maxLength={200}
           onChange={(e) => onTitleChange(e.target.value)}

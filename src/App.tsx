@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+﻿import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './lib/api';
 import { messageFor } from './lib/pure';
 import type { Page, PageSummary, Project, WorkspaceInfo } from './lib/types';
@@ -13,6 +13,7 @@ const TrashView = lazy(() => import('./components/TrashView').then((m) => ({ def
 import { CommandPalette, type PaletteAction } from './components/CommandPalette';
 import { AssistantPanel } from './components/AssistantPanel';
 const MeetingsView = lazy(() => import('./components/MeetingsView').then((m) => ({ default: m.MeetingsView })));
+const SourcesView = lazy(() => import('./components/SourcesView').then((m) => ({ default: m.SourcesView })));
 const RecipesView = lazy(() => import('./components/RecipesView').then((m) => ({ default: m.RecipesView })));
 
 export type View =
@@ -23,6 +24,7 @@ export type View =
   | { kind: 'settings' }
   | { kind: 'trash' }
   | { kind: 'meetings' }
+  | { kind: 'sources' }
   | { kind: 'recipes' };
 
 type Boot = 'loading' | 'onboarding' | 'ready';
@@ -40,6 +42,7 @@ export function App() {
   const [assistantOpen, setAssistantOpen] = useState(true);
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const onSelectionChange = useCallback((text: string | null) => setSelectedText(text), []);
+  const pendingOpen = useRef<string | null>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
 
@@ -122,6 +125,27 @@ export function App() {
 
   const openPage = useCallback((id: string) => go({ kind: 'page', id }), [go]);
 
+  // Opening a page in another workspace switches workspace, then opens the page once it is loaded.
+  const openElsewhere = useCallback(
+    async (path: string, pageId: string) => {
+      try {
+        pendingOpen.current = pageId;
+        await enterWorkspace(await api.switchWorkspace(path));
+      } catch (err) {
+        pendingOpen.current = null;
+        reportError(err);
+      }
+    },
+    [enterWorkspace, reportError],
+  );
+
+  useEffect(() => {
+    const target = pendingOpen.current;
+    if (!workspace || !target) return;
+    pendingOpen.current = null;
+    openPage(target);
+  }, [workspace, openPage]);
+
   const newPage = useCallback(
     async (parentId: string | null = null) => {
       try {
@@ -182,6 +206,7 @@ export function App() {
     { id: 'trash', label: 'Go to trash', run: () => go({ kind: 'trash' }) },
     { id: 'meetings', label: 'Go to meetings', run: () => go({ kind: 'meetings' }) },
     { id: 'recipes', label: 'Go to recipes', run: () => go({ kind: 'recipes' }) },
+    { id: 'sources', label: 'Go to sources', run: () => go({ kind: 'sources' }) },
     { id: 'settings', label: 'Open settings', run: () => go({ kind: 'settings' }) },
     { id: 'home', label: 'Go to home', run: () => go({ kind: 'home' }) },
   ];
@@ -196,11 +221,13 @@ export function App() {
     <div className={assistantOpen ? 'app-shell with-assistant' : 'app-shell'}>
       <Sidebar
         workspaceName={workspace.name}
+        workspaceId={workspace.id}
         pages={pages}
         projects={projects}
         activeView={view}
         onNavigate={go}
         onOpenPage={openPage}
+        onOpenElsewhere={(path, pageId) => void openElsewhere(path, pageId)}
         onNewPage={(parent) => void newPage(parent)}
         onSearch={(query) => go({ kind: 'search', query })}
       />
@@ -281,6 +308,15 @@ export function App() {
 
           {view.kind === 'meetings' && <MeetingsView onOpenPage={openPage} onError={reportError} />}
 
+          {view.kind === 'sources' && (
+            <SourcesView
+              pages={pages}
+              onOpenPage={openPage}
+              onChanged={() => void refreshLists().catch(reportError)}
+              onError={reportError}
+            />
+          )}
+
           {view.kind === 'recipes' && <RecipesView onError={reportError} />}
 
           {view.kind === 'trash' && (
@@ -318,7 +354,11 @@ function Home({
   onOpenPage: (id: string) => void;
   onNewPage: () => void;
 }) {
-  const recent = [...pages].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 8);
+  // Linked source files are listed in the Sources view, so they are left out of the notes shown here.
+  const recent = [...pages]
+    .filter((p) => !p.sourceId)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 8);
   return (
     <section className="home" aria-labelledby="home-title">
       <h1 id="home-title">{workspace.name}</h1>

@@ -16,6 +16,30 @@ export interface PageSummary {
   isFavorite: boolean;
   deletedAt: string | null;
   updatedAt: string;
+  /** Set for pages that mirror a linked source file. Those pages are read only. */
+  sourceId: string | null;
+}
+
+export interface SourceInfo {
+  id: string;
+  name: string;
+  rootPath: string;
+  addedAt: string;
+  lastSyncedAt: string | null;
+  lastSummary: string | null;
+  fileCount: number;
+}
+
+export interface SyncReport {
+  added: number;
+  updated: number;
+  removed: number;
+  unchanged: number;
+  skipped: number;
+  failed: number;
+  failures: string[];
+  truncated: boolean;
+  stopped: boolean;
 }
 
 export interface Page {
@@ -28,6 +52,8 @@ export interface Page {
   aiExcluded: boolean;
   createdAt: string;
   updatedAt: string;
+  sourceId: string | null;
+  sourcePath: string | null;
 }
 
 /** A Tiptap/ProseMirror JSON node. */

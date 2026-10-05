@@ -33,6 +33,8 @@ import type {
   TaskPatch,
   WorkspaceInfo,
   WorkspaceListItem,
+  SourceInfo,
+  SyncReport,
 } from './types';
 
 export const api = {
@@ -44,6 +46,12 @@ export const api = {
   switchWorkspace: (path: string) => invoke<WorkspaceInfo>('workspace_switch', { path }),
   renameWorkspace: (name: string) => invoke<WorkspaceInfo>('workspace_rename', { name }),
   forgetWorkspace: (path: string) => invoke<void>('workspace_forget', { path }),
+  workspacePages: (path: string) => invoke<PageSummary[]>('workspace_pages', { path }),
+
+  sourcesList: () => invoke<SourceInfo[]>('sources_list'),
+  sourcesAdd: (path: string) => invoke<SourceInfo>('sources_add', { path }),
+  sourcesSync: (id: string) => invoke<SyncReport>('sources_sync', { id }),
+  sourcesRemove: (id: string) => invoke<void>('sources_remove', { id }),
 
   listPages: () => invoke<PageSummary[]>('list_pages'),
   listTrash: () => invoke<PageSummary[]>('list_trash'),
