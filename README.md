@@ -48,8 +48,8 @@ Everything except the assistant, meetings and recipes works with no internet con
 ## Download and install
 
 1. Go to the [Releases page](https://github.com/lankeramkumar/threadwell/releases) and download one of:
-   - `Threadwell_0.1.2_x64_en-US.msi`: Windows Installer package
-   - `Threadwell_0.1.2_x64-setup.exe`: setup program
+   - `Threadwell_0.1.3_x64_en-US.msi`: Windows Installer package
+   - `Threadwell_0.1.3_x64-setup.exe`: setup program
 2. Run it. If Windows SmartScreen says it protected your PC, click **More info**, then **Run anyway**. This happens
    because the installer is not code-signed.
 3. Start **Threadwell** from the Start menu.

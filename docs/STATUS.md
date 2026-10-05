@@ -3,6 +3,17 @@
 This is the detailed checklist for every milestone in [intent.md](../intent.md): what is built, what is verified,
 and what is not. The overview is in the [README](../README.md).
 
+## Update for version 0.1.3
+
+| Item                                            | Status                                                                                                                                                                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenTelemetry local traces                      | Built, off by default. Spans for runs, steps, model calls and tool calls go to a local file. No content is recorded. Tested end to end, including a privacy test.                                                         |
+| Multi-agent option                              | Built as a graph of roles with per-role tool allowlists. Compared with the single agent on heldout3: no gated improvement, slower. Kept as an experimental option; the single agent stays the default, as the brief asks. |
+| Abstention regression in the multi-agent option | Diagnosed: the writer cites every source when the research finds nothing. Not fixed, to avoid tuning on the held-out split.                                                                                               |
+| Assistant task suggestions                      | Still below target (0.50 on heldout2 with 7B, 0.08 on heldout3 with 3B).                                                                                                                                                  |
+| Bulk and save performance                       | Unchanged from 0.1.2.                                                                                                                                                                                                     |
+| Idle memory                                     | 372 MiB measured on 0.1.2; not improved.                                                                                                                                                                                  |
+
 ## Update for version 0.1.2 (latest measurements)
 
 These supersede the older numbers below where they conflict.

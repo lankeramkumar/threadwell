@@ -11,7 +11,10 @@ export function TelemetrySettings({ onError }: { onError: (e: unknown) => void }
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    api.telemetryGetSettings().then((s) => setEnabled(s.localTraces)).catch(onError);
+    api
+      .telemetryGetSettings()
+      .then((s) => setEnabled(s.localTraces))
+      .catch(onError);
   }, [onError]);
 
   const change = async (value: boolean) => {
@@ -39,9 +42,9 @@ export function TelemetrySettings({ onError }: { onError: (e: unknown) => void }
     <section className="panel" aria-labelledby="telemetry-heading">
       <h2 id="telemetry-heading">Performance traces (local only)</h2>
       <p className="muted small">
-        When on, Threadwell records timing for assistant runs, steps, model calls and tool calls in OpenTelemetry format,
-        in a file on this computer. Each trace records names, step numbers, tool names, token counts, durations and
-        outcomes. It never records prompts, answers, page text, search snippets or tool arguments. Nothing is sent
+        When on, Threadwell records timing for assistant runs, steps, model calls and tool calls in OpenTelemetry
+        format, in a file on this computer. Each trace records names, step numbers, tool names, token counts, durations
+        and outcomes. It never records prompts, answers, page text, search snippets or tool arguments. Nothing is sent
         anywhere. The file is limited to about 10 MB.
       </p>
       <label className="checkbox small">

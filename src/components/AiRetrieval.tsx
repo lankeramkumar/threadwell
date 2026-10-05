@@ -21,7 +21,11 @@ export function AiRetrieval({ onError }: { onError: (e: unknown) => void }) {
     try {
       await api.setSetting('ai.architecture', value);
       setArchitecture(value);
-      setNotice(value === 'multi' ? 'Multi-agent mode is experimental and makes more model calls, so answers take longer.' : 'Saved.');
+      setNotice(
+        value === 'multi'
+          ? 'Multi-agent mode is experimental and makes more model calls, so answers take longer.'
+          : 'Saved.',
+      );
     } catch (err) {
       setNotice(messageFor(err));
     }
