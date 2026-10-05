@@ -32,6 +32,7 @@ describe('AssistantPanel', () => {
       <AssistantPanel
         pageId={null}
         pageTitle={null}
+        selectedText={null}
         onOpenPage={() => undefined}
         onOpenTasks={() => undefined}
         onOpenSettings={() => undefined}
@@ -55,6 +56,7 @@ describe('AssistantPanel', () => {
       <AssistantPanel
         pageId={null}
         pageTitle={null}
+        selectedText={null}
         onOpenPage={() => undefined}
         onOpenTasks={() => undefined}
         onOpenSettings={() => undefined}

@@ -129,7 +129,9 @@ export function MeetingsView({
         filters: [{ name: 'Audio', extensions: ['wav', 'mp3', 'm4a', 'mp4', 'webm'] }],
       });
       if (typeof file !== 'string') return;
-      await api.meetingsImportAudio(file);
+      const created = await api.meetingsImportAudio(file);
+      loadList();
+      setSelected(created.id);
     } catch (err) {
       setNotice(messageFor(err));
     }

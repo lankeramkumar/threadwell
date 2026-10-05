@@ -244,12 +244,28 @@ export function TasksView({ projects, initialProjectId, pages, onOpenPage, onPro
       {tasks !== null && tasks.length > 0 && mode === 'board' && grouped && (
         <div className="board" role="list" aria-label="Task board">
           {STATUS_ORDER.map((status) => (
-            <section key={status} className="board-column" role="listitem" aria-label={STATUS_LABELS[status]}>
+            <section
+              key={status}
+              className="board-column"
+              role="listitem"
+              aria-label={STATUS_LABELS[status]}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const dropped = tasks?.find((t) => t.id === e.dataTransfer.getData('text/plain'));
+                if (dropped && dropped.status !== status) void applyPatch(dropped, { status });
+              }}
+            >
               <h2>
                 {STATUS_LABELS[status]} <span className="muted">({grouped[status].length})</span>
               </h2>
               {grouped[status].map((task) => (
-                <article key={task.id} className="card">
+                <article
+                  key={task.id}
+                  className="card"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('text/plain', task.id)}
+                >
                   <h3>{task.title}</h3>
                   <p className="muted small">
                     {task.priority} priority

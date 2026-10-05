@@ -2,6 +2,7 @@
 //! `commands`; storage, validation and file access live behind them.
 
 mod ai;
+mod attachments;
 mod commands;
 mod db;
 mod documents;
@@ -50,6 +51,12 @@ pub fn run() {
             ai::commands::ai_set_page_excluded,
             ai::commands::ai_index_status,
             ai::commands::ai_index_start,
+            ai::history::ai_search_conversations,
+            ai::history::ai_delete_run,
+            attachments::attachments_list,
+            attachments::attachment_add,
+            attachments::attachment_remove,
+            attachments::attachment_reveal,
             local_import::local_scan_folder,
             local_import::local_import_folder,
             meetings::meetings_list,
@@ -57,6 +64,11 @@ pub fn run() {
             meetings::meetings_import_text,
             meetings::meetings_import_file,
             meetings::meetings_import_audio,
+            meetings::audio_settings_get,
+            meetings::audio_settings_save,
+            local_import::local_watched_folders,
+            local_import::local_set_watched,
+            local_import::local_sync_now,
             meetings::meetings_process,
             recipes::recipes_list,
             recipes::recipes_create,

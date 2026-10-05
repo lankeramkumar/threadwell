@@ -73,7 +73,7 @@ r.font.color.rgb = RGBColor(0x2E, 0x3A, 0x6B)
 sub = doc.add_paragraph()
 r = sub.add_run("Step-by-step user guide")
 r.font.size = Pt(15)
-para("Version 0.1.1 for Windows 11. Covers notes, tasks, search, import and export, backup, the local assistant, "
+para("Version 0.1.2 for Windows 11. Covers notes, tasks, search, import and export, backup, the local assistant, "
      "meetings, and recipes.")
 
 doc.add_heading("Before you start", level=1)
@@ -90,7 +90,7 @@ bullets([
 doc.add_heading("1. Install Threadwell", level=1)
 para("You need Windows 11. The installers are not code-signed, so Windows will show a warning the first time.")
 steps([
-    "Open the installer you were given: Threadwell_0.1.1_x64_en-US.msi (Windows Installer) or Threadwell_0.1.1_x64-setup.exe.",
+    "Open the installer you were given: Threadwell_0.1.2_x64_en-US.msi (Windows Installer) or Threadwell_0.1.2_x64-setup.exe.",
     "If Windows SmartScreen says it protected your PC, click More info, then Run anyway. Only do this for the file you downloaded from the place you trust.",
     "Follow the installer. Threadwell needs Microsoft Edge WebView2 Runtime, which Windows 11 includes.",
     "Start Threadwell from the Start menu.",
@@ -147,6 +147,14 @@ steps([
 doc.add_heading("Autosave", level=2)
 para("Threadwell saves about 0.8 seconds after you stop typing. The status line under the toolbar shows Unsaved changes, "
      "Saving… or Saved. If it says Couldn't save, Threadwell retries every few seconds. Keep the app open until it says Saved.")
+doc.add_heading("Attach a file to a page", level=2)
+para("Attachments are copies stored inside your workspace. Your original file is not moved or changed.")
+steps([
+    "Open the page and scroll to the Attachments section below the editor.",
+    "Click Attach a file… and choose the file. Files up to 25 MB are accepted.",
+    "To see where the stored copy is, click Show in folder. To delete the copy, click Remove. Your original file is not touched.",
+])
+note("Programs and scripts (.exe, .bat, .ps1, .js, .msi and similar) cannot be attached. Attach a document or export the data instead.")
 doc.add_heading("Move a page to the trash", level=2)
 steps([
     "Open the page and click Move to trash in the page header.",
@@ -160,7 +168,7 @@ steps([
     "Click Tasks in the sidebar. To add a task, open Add a task, type a title, choose a priority, and optionally a due date and project. Click Add task.",
     "To make a project, type its name under New project and click Create project. Projects appear in the sidebar.",
     "Use Table to edit tasks in place: change the title, status, priority, due date or project. Click the × next to a due date to clear it.",
-    "Use Board to see three columns: To do, In progress and Done. Use ← and → on a card to move it.",
+    "Use Board to see three columns: To do, In progress and Done. Drag a card to another column, or use ← and → on the card.",
     "To delete a task, click Delete in its row (table view).",
 ])
 para("Due dates are never filled in automatically. A task has no due date until you set one.")
@@ -186,13 +194,14 @@ para("Use this to bring in a whole folder at once. It reads Markdown (.md), text
 steps([
     "Open Settings and find Import a folder of notes.",
     "Click Choose folder… and select the folder. Threadwell scans it, including subfolders. Hidden files and links are skipped.",
+    "Optional: click Watch this folder. Later, Sync watched folders now imports any new notes in it. Changed files are reported, not imported automatically, so no duplicate pages appear.",
     "Read the status column. New means not imported yet. Already imported (unchanged) files are skipped. Changed since import files are imported again as a new page, and the earlier page is kept.",
     "Tick the files you want, or click Select all importable.",
     "Click Import, then read the summary. It lists imported and skipped counts, and any file that failed with the reason.",
 ])
 note("Word files keep their headings, lists and tables, but not fonts or images. PDFs keep their text but not their layout. "
-     "Scanned PDFs have no text and cannot be imported. OneNote (.one) and CSV files are not supported yet. "
-     "Export them from their own program as Markdown, text, Word or PDF first.")
+     "Scanned PDFs have no text and cannot be imported. CSV files become tables. OneNote (.one) files are not supported; "
+     "export them from OneNote as Word or Markdown first.")
 note("Transcripts (.vtt and .srt) are not part of folder import. Import them through Meetings instead (section 11).")
 doc.add_heading("Export", level=2)
 bullets([
@@ -223,6 +232,7 @@ bullets([
     "Appearance → Theme: Match system, Light or Dark.",
     "Finding information → Build or update index: rebuilds the search index for the assistant. Use it if results look out of date.",
     "AI assistance → Model server address, Model name, and an option to allow a server on another machine. Leave the last option off unless you know you need it.",
+    "Audio transcription (local engine) → the engine program and the model file you installed yourself. See section 11.",
 ])
 
 # ---------------------------------------------------------------- 9
@@ -279,12 +289,17 @@ steps([
     "Click Run on selection and wait. Click Stop to cancel.",
     "Compare Original and Suggested. Check any numbers warned about in red. Click Accept to replace the selection, or Reject to keep the original.",
 ])
+doc.add_heading("Use selected text as context", level=2)
+para("Select a passage in a page. A box appears in the assistant panel: Include the selected text as context. Tick it to include the passage with your question. Untick it to ask without it.")
+doc.add_heading("Find a past conversation", level=2)
+para("Type in Search past conversations at the top of the assistant panel. Matching conversations appear with the matching text. Click one to open it.")
 doc.add_heading("Keep a page out of the assistant", level=2)
 para("Tick Exclude from AI in the page header. The assistant will not search, read or suggest changes to that page. "
      "Pages you exclude are still searchable by you in Search.")
 doc.add_heading("See what the assistant did", level=2)
 para("Settings → Assistant history lists recent runs with their status, time and token counts. "
-     "Click a time to see each tool call and its outcome. Model reasoning is not stored.")
+     "Click a time to see each tool call and its outcome, and Delete this run's trace to remove that trace. "
+     "Suggestions and pages are kept. Model reasoning is not stored.")
 
 # ---------------------------------------------------------------- 11
 doc.add_heading("11. Work with meeting transcripts", level=1)
@@ -296,7 +311,17 @@ steps([
     "Read Extracted. Every summary line, decision, question and action shows evidence timestamps. Click into the transcript to check them.",
     "Review the action items card. Click Apply to create the tasks, or Reject. A due date appears only if the transcript states that exact date.",
 ])
-para("Audio recordings are not supported yet. Import audio… tells you that a transcription engine is needed. Convert the recording to text first, then import the text.", italic=True)
+doc.add_heading("Audio recordings (optional)", level=2)
+para("Threadwell can turn a recording into a transcript with a local engine you install yourself, such as whisper.cpp "
+     "(its whisper-cli program) and a model file you download for it. Threadwell does not download either one.", italic=False)
+steps([
+    "Install the engine and download a model file, following the engine's own instructions.",
+    "In Settings → Audio transcription, choose the engine program and the model file, then click Save.",
+    "In Meetings, click Import audio… and choose a WAV, MP3, M4A, MP4, WebM, FLAC or OGG recording.",
+    "The transcript is imported as a meeting. A transcription can take a long time; it stops after 30 minutes.",
+])
+note("Without an engine, Import audio… explains what is needed. You can always import a text transcript instead. "
+     "Recording-to-text quality depends on the engine and model you choose.")
 
 # ---------------------------------------------------------------- 12
 doc.add_heading("12. Use recipes (recurring drafts)", level=1)
@@ -325,10 +350,12 @@ table(["Problem", "Cause and fix"], [
     ["Assistant says Semantic search was unavailable", "The embedding model is not running or not installed. Keyword search still works. Run ollama pull nomic-embed-text."],
     ["Suggestion says Out of date", "The page changed after the suggestion. Ask again."],
     ["Import fails: file is larger than 5 MB", "Split the file into smaller ones."],
-    ["Folder import says Not supported", "The file type is .one (OneNote), .doc, .enex or CSV. Export it as Markdown, text, Word or PDF first."],
+    ["Folder import says Not supported", "The file type is .one (OneNote), .doc or .enex. Export it as Markdown, text, Word, PDF or CSV first."],
     ["Folder import says the PDF has no text layer", "The PDF is a scan. Use an OCR tool to make a text PDF, then import it again."],
     ["Folder import shows Changed since import", "The file changed after its last import. Importing it again creates a new page; the earlier page stays."],
-    ["Import audio… explains an engine is needed", "Audio is not supported in this version. Convert it to a transcript first."],
+    ["Import audio… explains an engine is needed", "Choose an engine program and a model file in Settings → Audio transcription, or import a text transcript instead."],
+    ["Attach a file says it cannot be attached", "The file is a program or script, or it is larger than 25 MB."],
+    ["The disk is full message", "Free some disk space. Threadwell keeps your edits open; save again after freeing space."],
 ], widths=[6, 10])
 
 # ---------------------------------------------------------------- 14

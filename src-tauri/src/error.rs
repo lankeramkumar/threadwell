@@ -22,7 +22,19 @@ pub enum AppError {
 }
 
 impl AppError {
+    /// True when the disk is full. Shown as its own state, because saving cannot succeed until space is freed.
+    fn is_storage_full(&self) -> bool {
+        match self {
+            AppError::Db(rusqlite::Error::SqliteFailure(e, _)) => e.code == rusqlite::ErrorCode::DiskFull,
+            AppError::Io(e) => e.kind() == std::io::ErrorKind::StorageFull,
+            _ => false,
+        }
+    }
+
     fn code(&self) -> &'static str {
+        if self.is_storage_full() {
+            return "quota";
+        }
         match self {
             AppError::Validation(_) => "validation",
             AppError::NotFound(_) => "not_found",
@@ -46,10 +58,12 @@ impl Serialize for AppError {
         if let AppError::Db(err) = self {
             eprintln!("[threadwell] database error: {err}");
         }
-        ErrorPayload {
-            code: self.code(),
-            message: self.to_string(),
-        }
+        let message = if self.is_storage_full() {
+            "The disk is full. Free some space, then try again. Your last change was not saved.".to_string()
+        } else {
+            self.to_string()
+        };
+        ErrorPayload { code: self.code(), message }
         .serialize(serializer)
     }
 }

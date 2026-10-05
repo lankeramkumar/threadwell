@@ -481,3 +481,41 @@ mod tests {
         assert!(get(&conn, &ws, &page.id).unwrap().is_favorite);
     }
 }
+
+#[cfg(test)]
+mod save_latency_bench {
+    use super::*;
+    use crate::db;
+    use std::time::Instant;
+
+    /// Manual measurement: time to save one page (title, body, index and link refresh) on a
+    /// 5,000-page workspace, the work done after the 800 ms autosave pause. Run with:
+    /// cargo test --release measures_save_latency -- --ignored --nocapture
+    #[test]
+    #[ignore = "manual measurement; see README Performance"]
+    fn measures_save_latency() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = db::open(&dir.path().join("save.db")).unwrap();
+        db::migrate(&mut conn).unwrap();
+        let ws = util::new_id();
+        conn.execute("INSERT INTO workspace_meta (id, name, created_at) VALUES (?1, 'Save', ?2)", params![ws, util::now()]).unwrap();
+        let mut ids = Vec::new();
+        for i in 0..5000 {
+            let page = create(&conn, &ws, &format!("Page {i}"), None).unwrap();
+            ids.push(page.id);
+        }
+        let target = ids[2500].clone();
+        let mut revision = get(&conn, &ws, &target).unwrap().revision;
+        let body = markdown::from_markdown(&"## Notes\n\nA paragraph of ordinary text for the editor. ".repeat(12));
+        let mut timings = Vec::new();
+        for _ in 0..200 {
+            let start = Instant::now();
+            revision = update(&conn, &ws, &target, "Page 2500", &body, revision).unwrap().revision;
+            timings.push(start.elapsed().as_micros());
+        }
+        timings.sort_unstable();
+        let p50 = timings[timings.len() / 2] as f64 / 1000.0;
+        let p95 = timings[timings.len() * 95 / 100] as f64 / 1000.0;
+        println!("bench: save on a 5000-page workspace, 200 saves: p50 {p50:.2} ms, p95 {p95:.2} ms");
+    }
+}

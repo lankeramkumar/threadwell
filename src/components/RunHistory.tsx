@@ -29,6 +29,18 @@ export function RunHistory({ onError }: { onError: (e: unknown) => void }) {
       .catch((err) => setMessage(messageFor(err)));
   }, [selected]);
 
+  const removeRun = async () => {
+    if (!selected) return;
+    if (!window.confirm("Delete this run's trace? Suggestions and pages are kept.")) return;
+    try {
+      await api.aiDeleteRun(selected);
+      setSelected(null);
+      setRuns(await api.aiListRuns(30));
+    } catch (err) {
+      setMessage(messageFor(err));
+    }
+  };
+
   const totals = (runs ?? []).reduce(
     (acc, r) => ({
       duration: acc.duration + (r.durationMs ?? 0),
@@ -91,6 +103,9 @@ export function RunHistory({ onError }: { onError: (e: unknown) => void }) {
       {selected && (
         <div aria-label="Tool trace">
           <h3>Tool trace</h3>
+          <button type="button" className="danger-quiet" onClick={() => void removeRun()}>
+            Delete this run's trace
+          </button>
           {message && <p className="inline-error">{message}</p>}
           {trace.length === 0 && !message && <p className="muted small">No tool calls in this run.</p>}
           <ol>

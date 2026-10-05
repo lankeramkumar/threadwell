@@ -9,6 +9,7 @@
 //! Audio import is not implemented here. It needs a transcription engine, and none is
 //! configured in this build. The command reports that state instead of failing silently.
 
+use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -649,17 +650,124 @@ pub async fn meetings_import_file(state: State<'_, AppState>, path: String) -> A
     with_active(&state.active, |a| create(&a.conn, &a.info.id, &title, &text, "transcript_file"))
 }
 
-/// Audio import has no engine in this build. The command states that clearly.
-#[tauri::command]
-pub async fn meetings_import_audio(path: String) -> AppResult<()> {
-    let src = crate::util::validate_abs_path(&path)?;
-    let ext = src.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
-    if !matches!(ext.as_str(), "wav" | "mp3" | "m4a" | "mp4" | "webm") {
-        return validation("Choose a WAV, MP3, M4A, MP4 or WebM recording");
+/// Settings keys for the local transcription engine. The engine is a program the user chooses,
+/// such as whisper.cpp's `whisper-cli`, plus a model file. It runs with a fixed argument list,
+/// never through a shell. Nothing is downloaded or bundled.
+pub const ENGINE_KEY: &str = "transcribe.engine_path";
+pub const MODEL_KEY: &str = "transcribe.model_path";
+const ENGINE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+const AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "m4a", "mp4", "webm", "flac", "ogg"];
+
+fn configured_path(conn: &Connection, key: &str) -> AppResult<Option<std::path::PathBuf>> {
+    let raw: Option<String> = conn
+        .query_row("SELECT value FROM settings WHERE key = ?1", params![key], |r| r.get(0))
+        .optional()?;
+    Ok(raw.filter(|v| !v.trim().is_empty()).map(std::path::PathBuf::from))
+}
+
+fn regular_file(path: &Path, what: &str) -> AppResult<()> {
+    if !path.is_absolute() {
+        return validation(format!("The {what} path must be a full path"));
     }
-    Err(AppError::Validation(
-        "Audio transcription needs a configured local engine. None is set up in this build, so import a transcript instead.".into(),
-    ))
+    let meta = std::fs::symlink_metadata(path).map_err(|_| AppError::Validation(format!("The {what} file was not found")))?;
+    if meta.file_type().is_symlink() || !meta.is_file() {
+        return validation(format!("The {what} must be a regular file"));
+    }
+    Ok(())
+}
+
+/// Runs the configured engine on one recording and returns the transcript text.
+pub fn run_engine(engine: &Path, model: &Path, audio: &Path) -> AppResult<String> {
+    let work = std::env::temp_dir().join(format!("threadwell-transcribe-{}", util::new_id()));
+    std::fs::create_dir_all(&work)?;
+    let prefix = work.join("transcript");
+    let mut child = std::process::Command::new(engine)
+        .arg("-m")
+        .arg(model)
+        .arg("-f")
+        .arg(audio)
+        .arg("-otxt")
+        .arg("-of")
+        .arg(&prefix)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|_| AppError::Validation("The transcription engine could not be started".into()))?;
+    let started = std::time::Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if started.elapsed() > ENGINE_TIMEOUT {
+            let _ = child.kill();
+            let _ = std::fs::remove_dir_all(&work);
+            return validation("Transcription took longer than 30 minutes and was stopped");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    };
+    let result = if status.success() {
+        std::fs::read_to_string(prefix.with_extension("txt"))
+            .map_err(|_| AppError::Validation("The engine finished but produced no transcript".into()))
+    } else {
+        validation("The transcription engine reported an error")
+    };
+    let _ = std::fs::remove_dir_all(&work);
+    result
+}
+
+/// Transcribes a recording with the configured engine, then imports the text as a meeting.
+#[tauri::command]
+pub async fn meetings_import_audio(state: State<'_, AppState>, path: String) -> AppResult<Meeting> {
+    let audio = crate::util::validate_abs_path(&path)?;
+    let ext = audio.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
+    if !AUDIO_EXTENSIONS.contains(&ext.as_str()) {
+        return validation("Choose a WAV, MP3, M4A, MP4, WebM, FLAC or OGG recording");
+    }
+    regular_file(&audio, "recording")?;
+    let (engine, model, ws) = with_active(&state.active, |a| {
+        let engine = configured_path(&a.conn, ENGINE_KEY)?;
+        let model = configured_path(&a.conn, MODEL_KEY)?;
+        Ok((engine, model, a.info.id.clone()))
+    })?;
+    let (Some(engine), Some(model)) = (engine, model) else {
+        return validation(
+            "Audio transcription needs a local engine. In Settings → Audio transcription, choose the engine program and a model file, or import a text transcript instead.",
+        );
+    };
+    regular_file(&engine, "engine")?;
+    regular_file(&model, "model")?;
+    let text = tauri::async_runtime::spawn_blocking(move || run_engine(&engine, &model, &audio))
+        .await
+        .map_err(|_| AppError::Validation("Transcription stopped unexpectedly".into()))??;
+    let title = std::path::Path::new(&path).file_stem().and_then(|s| s.to_str()).unwrap_or("Recording").to_string();
+    with_active(&state.active, |a| create(&a.conn, &ws, &title, &text, "transcript_file"))
+}
+
+#[tauri::command]
+pub async fn audio_settings_get(state: State<'_, AppState>) -> AppResult<(Option<String>, Option<String>)> {
+    with_active(&state.active, |a| {
+        Ok((
+            configured_path(&a.conn, ENGINE_KEY)?.map(|p| p.display().to_string()),
+            configured_path(&a.conn, MODEL_KEY)?.map(|p| p.display().to_string()),
+        ))
+    })
+}
+
+#[tauri::command]
+pub async fn audio_settings_save(state: State<'_, AppState>, engine_path: String, model_path: String) -> AppResult<()> {
+    with_active(&state.active, |a| {
+        for (key, value) in [(ENGINE_KEY, engine_path.trim()), (MODEL_KEY, model_path.trim())] {
+            if !value.is_empty() {
+                regular_file(Path::new(value), if key == ENGINE_KEY { "engine" } else { "model" })?;
+            }
+            a.conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )?;
+        }
+        Ok(())
+    })
 }
 
 #[derive(Serialize)]
@@ -855,5 +963,30 @@ mod demo_transcript_tests {
             }
         }
         assert_eq!(count, 20);
+    }
+}
+
+#[cfg(test)]
+mod audio_tests {
+    use super::*;
+
+    #[test]
+    fn a_missing_engine_is_reported_clearly() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("no-such-engine.exe");
+        let audio = dir.path().join("talk.wav");
+        std::fs::write(&audio, b"RIFF").unwrap();
+        let err = run_engine(&missing, &dir.path().join("model.bin"), &audio).unwrap_err();
+        assert!(err.to_string().contains("could not be started"));
+    }
+
+    #[test]
+    fn engine_and_model_paths_must_be_real_files() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(regular_file(Path::new("relative.exe"), "engine").is_err());
+        assert!(regular_file(&dir.path().join("absent.bin"), "model").is_err());
+        let real = dir.path().join("model.bin");
+        std::fs::write(&real, b"x").unwrap();
+        assert!(regular_file(&real, "model").is_ok());
     }
 }

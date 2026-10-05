@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { messageFor, isConflict } from '../lib/pure';
 import type {
   AiDeltaEvent,
+  ConversationHit,
   AiDoneEvent,
   AiProposalEvent,
   AiReadiness,
@@ -16,6 +17,7 @@ import type {
 } from '../lib/types';
 
 interface Props {
+  selectedText: string | null;
   pageId: string | null;
   pageTitle: string | null;
   onOpenPage: (id: string) => void;
@@ -42,7 +44,15 @@ interface Pending {
  * proposes appear as cards that the user applies, rejects, or undoes. Nothing is written
  * without an explicit click.
  */
-export function AssistantPanel({ pageId, pageTitle, onOpenPage, onOpenTasks, onOpenSettings, onDataChanged }: Props) {
+export function AssistantPanel({
+  pageId,
+  pageTitle,
+  selectedText,
+  onOpenPage,
+  onOpenTasks,
+  onOpenSettings,
+  onDataChanged,
+}: Props) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -51,6 +61,29 @@ export function AssistantPanel({ pageId, pageTitle, onOpenPage, onOpenTasks, onO
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [input, setInput] = useState('');
   const [includePage, setIncludePage] = useState(true);
+  const [includeSelection, setIncludeSelection] = useState(true);
+  const [historyQuery, setHistoryQuery] = useState('');
+  const [historyHits, setHistoryHits] = useState<ConversationHit[] | null>(null);
+
+  // Search past conversations as the user types. Stale responses are ignored.
+  useEffect(() => {
+    const query = historyQuery.trim();
+    if (!query) {
+      setHistoryHits(null);
+      return;
+    }
+    let current = true;
+    const timer = window.setTimeout(() => {
+      api
+        .aiSearchConversations(query)
+        .then((hits) => current && setHistoryHits(hits))
+        .catch(() => current && setHistoryHits([]));
+    }, 250);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [historyQuery]);
   const [notice, setNotice] = useState<string | null>(null);
   const activeRunRef = useRef<string | null>(null);
 
@@ -149,6 +182,7 @@ export function AssistantPanel({ pageId, pageTitle, onOpenPage, onOpenTasks, onO
         conversationId,
         message,
         pageId: includePage ? pageId : null,
+        selectedText: includeSelection && selectedText ? selectedText : null,
       });
       setConversationId(started.conversationId);
     } catch (err) {
@@ -204,6 +238,37 @@ export function AssistantPanel({ pageId, pageTitle, onOpenPage, onOpenTasks, onO
           New chat
         </button>
       </header>
+
+      <div className="assistant-search">
+        <input
+          type="search"
+          aria-label="Search past conversations"
+          placeholder="Search past conversations"
+          value={historyQuery}
+          onChange={(e) => setHistoryQuery(e.target.value)}
+        />
+        {historyHits && (
+          <ul className="history-hits" aria-label="Matching conversations">
+            {historyHits.length === 0 && <li className="muted small">No conversation mentions that.</li>}
+            {historyHits.map((hit) => (
+              <li key={hit.conversationId}>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => {
+                    setHistoryQuery('');
+                    setHistoryHits(null);
+                    loadConversation(hit.conversationId);
+                  }}
+                >
+                  {hit.title}
+                </button>
+                <div className="muted small">{hit.snippet}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="assistant-controls">
         <label className="inline-label grow">
@@ -281,6 +346,12 @@ export function AssistantPanel({ pageId, pageTitle, onOpenPage, onOpenTasks, onO
           void send();
         }}
       >
+        {selectedText && (
+          <label className="checkbox small">
+            <input type="checkbox" checked={includeSelection} onChange={(e) => setIncludeSelection(e.target.checked)} />
+            Include the selected text as context
+          </label>
+        )}
         {pageId && (
           <label className="checkbox small">
             <input type="checkbox" checked={includePage} onChange={(e) => setIncludePage(e.target.checked)} />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { api } from '../lib/api';
 import { messageFor } from '../lib/pure';
@@ -27,6 +27,44 @@ export function FolderImport({ onImported, onError }: { onImported: () => void; 
   const [report, setReport] = useState<ImportReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [watched, setWatched] = useState<string[]>([]);
+
+  useEffect(() => {
+    api
+      .localWatchedFolders()
+      .then(setWatched)
+      .catch(() => undefined);
+  }, []);
+
+  const toggleWatch = async () => {
+    if (!folder) return;
+    setNotice(null);
+    try {
+      const isWatched = watched.includes(folder);
+      setWatched(await api.localSetWatched(folder, !isWatched));
+    } catch (err) {
+      setNotice(messageFor(err));
+    }
+  };
+
+  const syncNow = async () => {
+    setNotice(null);
+    setBusy(true);
+    try {
+      const results = await api.localSyncNow();
+      const imported = results.reduce((n, r) => n + r.imported, 0);
+      const changed = results.reduce((n, r) => n + r.changed, 0);
+      setNotice(
+        `Synced ${results.length} watched folder${results.length === 1 ? '' : 's'}: ${imported} new note${imported === 1 ? '' : 's'} imported` +
+          (changed ? `, ${changed} changed (import those by hand from the list above).` : '.'),
+      );
+      if (imported > 0) onImported();
+    } catch (err) {
+      setNotice(messageFor(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const chooseFolder = async () => {
     setNotice(null);
@@ -90,6 +128,23 @@ export function FolderImport({ onImported, onError }: { onImported: () => void; 
         </button>
         {folder && <code className="path">{folder}</code>}
       </div>
+
+      <div className="row wrap">
+        {folder && (
+          <button type="button" onClick={() => void toggleWatch()} disabled={busy}>
+            {watched.includes(folder) ? 'Stop watching this folder' : 'Watch this folder'}
+          </button>
+        )}
+        {watched.length > 0 && (
+          <button type="button" onClick={() => void syncNow()} disabled={busy}>
+            Sync {watched.length} watched folder{watched.length === 1 ? '' : 's'} now
+          </button>
+        )}
+      </div>
+      <p className="muted small">
+        Watched folders are checked for new notes each time you open the workspace from the Sync button. Threadwell does
+        not run a background watcher, and changed files are never imported automatically.
+      </p>
 
       {scan && (
         <>

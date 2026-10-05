@@ -26,7 +26,7 @@ use crate::{documents, markdown, pages, util};
 pub const MAX_FILES: usize = 2_000;
 const MAX_DEPTH: usize = 8;
 const MAX_FILE_BYTES: u64 = 5 * 1024 * 1024;
-const SUPPORTED: &[&str] = &["md", "markdown", "txt", "docx", "pdf"];
+const SUPPORTED: &[&str] = &["md", "markdown", "txt", "docx", "pdf", "csv"];
 const UNSUPPORTED: &[&str] = &["one", "onetoc2", "doc", "enex"];
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -231,6 +231,10 @@ fn import_one(conn: &Connection, ws: &str, root: &Path, relative: &str, parent: 
     let text = match ext.as_str() {
         "docx" => documents::docx_to_markdown(&bytes).map_err(AppError::Validation)?,
         "pdf" => documents::pdf_to_text(&bytes).map_err(AppError::Validation)?,
+        "csv" => {
+            let text = String::from_utf8(bytes).map_err(|_| AppError::Validation("The CSV file is not UTF-8 text".into()))?;
+            documents::csv_to_markdown(&text).map_err(AppError::Validation)?
+        }
         _ => String::from_utf8(bytes).map_err(|_| AppError::Validation("The file is not UTF-8 text".into()))?,
     };
 
@@ -255,6 +259,89 @@ fn import_one(conn: &Connection, ws: &str, root: &Path, relative: &str, parent: 
     )?;
     tx.commit()?;
     Ok(ImportOutcome::Imported(page.id))
+}
+
+// ---------------------------------------------------------------------------
+// Watched folders: remembered folders whose new notes are imported on request
+// ---------------------------------------------------------------------------
+
+const WATCH_KEY: &str = "sync.folders";
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderSync {
+    pub path: String,
+    pub imported: usize,
+    pub changed: usize,
+    pub failed: usize,
+    pub error: Option<String>,
+}
+
+pub fn watched_folders(conn: &Connection) -> AppResult<Vec<String>> {
+    let raw: Option<String> = conn
+        .query_row("SELECT value FROM settings WHERE key = ?1", params![WATCH_KEY], |r| r.get(0))
+        .optional()?;
+    Ok(raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or_default())
+}
+
+fn save_watched(conn: &Connection, folders: &[String]) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![WATCH_KEY, serde_json::to_string(folders)?],
+    )?;
+    Ok(())
+}
+
+/// Adds or removes a folder from the watch list. Adding checks that the folder exists now.
+pub fn set_watched(conn: &Connection, root_text: &str, watch: bool) -> AppResult<Vec<String>> {
+    let root = validate_root(root_text)?;
+    let canonical = root.display().to_string();
+    let mut folders = watched_folders(conn)?;
+    folders.retain(|f| f != &canonical);
+    if watch {
+        folders.push(canonical);
+    }
+    save_watched(conn, &folders)?;
+    Ok(folders)
+}
+
+/// Imports new notes from every watched folder. Changed files are counted but not imported,
+/// because importing them again would create a duplicate page the user did not ask for.
+pub fn sync_all(conn: &Connection, ws: &str) -> AppResult<Vec<FolderSync>> {
+    let mut out = Vec::new();
+    for folder in watched_folders(conn)? {
+        match scan(conn, ws, &folder) {
+            Err(e) => out.push(FolderSync { path: folder, imported: 0, changed: 0, failed: 0, error: Some(e.to_string()) }),
+            Ok(scanned) => {
+                let new: Vec<String> = scanned.items.iter().filter(|i| i.status == "new").map(|i| i.relative_path.clone()).collect();
+                let changed = scanned.items.iter().filter(|i| i.status == "changed").count();
+                let report = import(conn, ws, &folder, &new, None)?;
+                out.push(FolderSync {
+                    path: folder,
+                    imported: report.imported,
+                    changed,
+                    failed: report.failed.len(),
+                    error: None,
+                });
+            }
+        }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn local_watched_folders(state: State<'_, AppState>) -> AppResult<Vec<String>> {
+    with_active(&state.active, |a| watched_folders(&a.conn))
+}
+
+#[tauri::command]
+pub async fn local_set_watched(state: State<'_, AppState>, path: String, watch: bool) -> AppResult<Vec<String>> {
+    with_active(&state.active, |a| set_watched(&a.conn, &path, watch))
+}
+
+#[tauri::command]
+pub async fn local_sync_now(state: State<'_, AppState>) -> AppResult<Vec<FolderSync>> {
+    with_active(&state.active, |a| sync_all(&a.conn, &a.info.id))
 }
 
 // ---------------------------------------------------------------------------
@@ -410,14 +497,59 @@ mod demo_project_tests {
         let root = demo.display().to_string();
         let scanned = scan(&conn, &ws, &root).unwrap();
         let notes: Vec<&ScanItem> = scanned.items.iter().filter(|i| i.status == "new").collect();
-        assert_eq!(notes.len(), 40, "10 each of md, txt, docx and pdf");
+        // 40 generated notes plus the folder's own README.md, which is also a Markdown note.
+        assert_eq!(notes.len(), 41, "10 each of md, txt, docx and pdf, plus the folder README");
         let paths: Vec<String> = notes.iter().map(|i| i.relative_path.clone()).collect();
         let report = import(&conn, &ws, &root, &paths, None).unwrap();
         assert!(report.failed.is_empty(), "failed: {:?}", report.failed);
-        assert_eq!(report.imported, 40);
-        assert_eq!(pages::list(&conn, &ws).unwrap().len(), 40);
+        assert_eq!(report.imported, 41);
+        assert_eq!(pages::list(&conn, &ws).unwrap().len(), 41);
 
         let again = import(&conn, &ws, &root, &paths, None).unwrap();
-        assert_eq!((again.imported, again.skipped), (0, 40));
+        assert_eq!((again.imported, again.skipped), (0, 41));
+    }
+}
+
+#[cfg(test)]
+mod sync_tests {
+    use super::*;
+    use crate::db;
+
+    fn setup() -> (tempfile::TempDir, Connection, String, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = db::open(&dir.path().join("s.db")).unwrap();
+        db::migrate(&mut conn).unwrap();
+        let ws = util::new_id();
+        conn.execute("INSERT INTO workspace_meta (id, name, created_at) VALUES (?1, 'S', ?2)", params![ws, util::now()]).unwrap();
+        let folder = dir.path().join("inbox");
+        fs::create_dir_all(&folder).unwrap();
+        (dir, conn, ws, folder)
+    }
+
+    #[test]
+    fn sync_imports_new_notes_and_only_counts_changed_ones() {
+        let (_d, conn, ws, folder) = setup();
+        fs::write(folder.join("first.md"), "# First\n\nhello").unwrap();
+        set_watched(&conn, &folder.display().to_string(), true).unwrap();
+
+        let first = sync_all(&conn, &ws).unwrap();
+        assert_eq!((first[0].imported, first[0].changed), (1, 0));
+
+        fs::write(folder.join("second.txt"), "new note").unwrap();
+        fs::write(folder.join("first.md"), "# First\n\nedited").unwrap();
+        let second = sync_all(&conn, &ws).unwrap();
+        assert_eq!(second[0].imported, 1, "only the new file is imported");
+        assert_eq!(second[0].changed, 1, "the edited file is reported, not duplicated");
+        assert_eq!(crate::pages::list(&conn, &ws).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn watching_a_missing_folder_is_refused_and_unwatching_removes_it() {
+        let (dir, conn, _ws, folder) = setup();
+        assert!(set_watched(&conn, &dir.path().join("nope").display().to_string(), true).is_err());
+        set_watched(&conn, &folder.display().to_string(), true).unwrap();
+        assert_eq!(watched_folders(&conn).unwrap().len(), 1);
+        set_watched(&conn, &folder.display().to_string(), false).unwrap();
+        assert!(watched_folders(&conn).unwrap().is_empty());
     }
 }

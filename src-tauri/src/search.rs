@@ -3,7 +3,7 @@
 //! `page_search` is derived data. Pages are authoritative, and `rebuild` regenerates
 //! the index from them. Every query is scoped to one workspace id.
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -24,16 +24,33 @@ pub struct SearchHit {
 
 /// Replaces a page's index row. Callers pass the same title and body that were stored.
 pub fn index_page(conn: &Connection, page_id: &str, title: &str, body: &Value) -> AppResult<()> {
-    conn.execute("DELETE FROM page_search WHERE page_id = ?1", params![page_id])?;
+    // Delete by the stored rowid, a direct lookup. Deleting by the unindexed page_id would scan
+    // the whole index on every save.
+    let previous: Option<i64> = conn
+        .query_row("SELECT fts_rowid FROM pages WHERE id = ?1", params![page_id], |r| r.get(0))
+        .optional()?
+        .flatten();
+    if let Some(rowid) = previous {
+        conn.execute("DELETE FROM page_search WHERE rowid = ?1", params![rowid])?;
+    }
     conn.execute(
         "INSERT INTO page_search (page_id, title, body) VALUES (?1, ?2, ?3)",
         params![page_id, title, markdown::plain_text(body)],
     )?;
+    let rowid = conn.last_insert_rowid();
+    conn.execute("UPDATE pages SET fts_rowid = ?1 WHERE id = ?2", params![rowid, page_id])?;
     Ok(())
 }
 
 pub fn remove_page(conn: &Connection, page_id: &str) -> AppResult<()> {
-    conn.execute("DELETE FROM page_search WHERE page_id = ?1", params![page_id])?;
+    let previous: Option<i64> = conn
+        .query_row("SELECT fts_rowid FROM pages WHERE id = ?1", params![page_id], |r| r.get(0))
+        .optional()?
+        .flatten();
+    if let Some(rowid) = previous {
+        conn.execute("DELETE FROM page_search WHERE rowid = ?1", params![rowid])?;
+    }
+    conn.execute("UPDATE pages SET fts_rowid = NULL WHERE id = ?1", params![page_id])?;
     Ok(())
 }
 

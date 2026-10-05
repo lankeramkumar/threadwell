@@ -15,6 +15,8 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0002_ai.sql"),
     include_str!("../migrations/0003_knowledge_meetings_recipes.sql"),
     include_str!("../migrations/0004_local_imports.sql"),
+    include_str!("../migrations/0005_attachments.sql"),
+    include_str!("../migrations/0006_search_rowid.sql"),
 ];
 
 /// Migrations that rebuild tables other tables reference. They run with foreign-key

@@ -117,3 +117,32 @@ review.
 3. `no_proposals` is parsed but not read, so the injection-proposal gate is computed from case ids. A harmless
    inconsistency, but it should be cleaned up.
 4. The human spot check field in each report is a reminder. Nothing in the harness records a reviewer.
+
+## Second held-out split, larger model (heldout2)
+
+After the first held-out run, the team added a larger local model (`qwen2.5:7b`) and a new held-out split (`heldout2`,
+20 cases over the same corpus). The 20 cases were committed in `a172086`, before any run, and the thresholds above are
+unchanged. The earlier 40 cases are unchanged too.
+
+| Gate                                    | Threshold | heldout2 with qwen2.5:7b | Result                         |
+| --------------------------------------- | --------- | ------------------------ | ------------------------------ |
+| Retrieval recall@3, hybrid              | ≥ 0.80    | 1.00                     | Pass                           |
+| Phrase pass rate, grounded and conflict | ≥ 0.75    | 0.80                     | Pass                           |
+| Missing-question abstention             | ≥ 0.66    | 1.00                     | Pass                           |
+| Task keyword recall                     | ≥ 0.75    | 0.50                     | **Fail**                       |
+| Invented due dates                      | 0         | 0                        | Pass                           |
+| Injection: forbidden text in answers    | 0         | 0                        | Pass (was 1 with the 3B model) |
+| Injection: proposals created            | 0         | 0                        | Pass (was 1 with the 3B model) |
+| Citation validity                       | 100%      | 100%                     | Pass                           |
+
+Seven of eight gated checks pass, including both injection checks that failed before. Task keyword recall still fails:
+two task cases produced a proposal whose wording did not contain the expected keywords.
+
+Latency is a real cost: p50 87.3 s, p95 114.9 s per case on CPU, against 43 s p50 for the 3B model. Prompt tokens total
+34,790 and output tokens 1,296, as reported by the model server.
+
+Report: `eval/reports/heldout2-*.json`.
+
+Not done on purpose: the task gate was not tuned against heldout2. Fixing it properly means a dedicated task-extraction
+path (like the meeting extraction) developed on the dev split, then tested on a new held-out split. Tuning on heldout2
+would make the split useless as a held-out check.

@@ -1,19 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './lib/api';
 import { messageFor } from './lib/pure';
 import type { Page, PageSummary, Project, WorkspaceInfo } from './lib/types';
 import { applyTheme } from './lib/theme';
 import { Onboarding } from './components/Onboarding';
 import { Sidebar } from './components/Sidebar';
-import { PageEditor } from './components/PageEditor';
-import { TasksView } from './components/TasksView';
-import { SearchView } from './components/SearchView';
-import { SettingsView } from './components/SettingsView';
-import { TrashView } from './components/TrashView';
+const PageEditor = lazy(() => import('./components/PageEditor').then((m) => ({ default: m.PageEditor })));
+const TasksView = lazy(() => import('./components/TasksView').then((m) => ({ default: m.TasksView })));
+const SearchView = lazy(() => import('./components/SearchView').then((m) => ({ default: m.SearchView })));
+const SettingsView = lazy(() => import('./components/SettingsView').then((m) => ({ default: m.SettingsView })));
+const TrashView = lazy(() => import('./components/TrashView').then((m) => ({ default: m.TrashView })));
 import { CommandPalette, type PaletteAction } from './components/CommandPalette';
 import { AssistantPanel } from './components/AssistantPanel';
-import { MeetingsView } from './components/MeetingsView';
-import { RecipesView } from './components/RecipesView';
+const MeetingsView = lazy(() => import('./components/MeetingsView').then((m) => ({ default: m.MeetingsView })));
+const RecipesView = lazy(() => import('./components/RecipesView').then((m) => ({ default: m.RecipesView })));
 
 export type View =
   | { kind: 'home' }
@@ -38,6 +38,8 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(true);
+  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const onSelectionChange = useCallback((text: string | null) => setSelectedText(text), []);
   const viewRef = useRef(view);
   viewRef.current = view;
 
@@ -133,6 +135,17 @@ export function App() {
     [go, refreshLists, reportError],
   );
 
+  // Watched folders are checked once when a workspace opens. Nothing runs in the background.
+  useEffect(() => {
+    if (!workspace) return;
+    void api
+      .localSyncNow()
+      .then((results) => {
+        if (results.some((r) => r.imported > 0)) void refreshLists();
+      })
+      .catch(() => undefined);
+  }, [workspace?.id]);
+
   // Indexing is incremental and cheap when nothing is pending, so it runs after every list change.
   useEffect(() => {
     if (workspace) void api.aiIndexStart().catch(() => undefined);
@@ -193,82 +206,92 @@ export function App() {
       />
 
       <main className="main" id="main">
-        <div className="main-toolbar">
-          <button type="button" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((open) => !open)}>
-            {assistantOpen ? 'Hide assistant' : 'Show assistant'}
-          </button>
-        </div>
-        {error && (
-          <div role="alert" className="banner">
-            <span>{error}</span>
-            <button type="button" onClick={() => setError(null)} aria-label="Dismiss message">
-              ×
+        <Suspense
+          fallback={
+            <p role="status" className="muted">
+              Loading…
+            </p>
+          }
+        >
+          <div className="main-toolbar">
+            <button type="button" aria-expanded={assistantOpen} onClick={() => setAssistantOpen((open) => !open)}>
+              {assistantOpen ? 'Hide assistant' : 'Show assistant'}
             </button>
           </div>
-        )}
+          {error && (
+            <div role="alert" className="banner">
+              <span>{error}</span>
+              <button type="button" onClick={() => setError(null)} aria-label="Dismiss message">
+                ×
+              </button>
+            </div>
+          )}
 
-        {view.kind === 'home' && (
-          <Home workspace={workspace} pages={pages} onOpenPage={openPage} onNewPage={() => void newPage(null)} />
-        )}
+          {view.kind === 'home' && (
+            <Home workspace={workspace} pages={pages} onOpenPage={openPage} onNewPage={() => void newPage(null)} />
+          )}
 
-        {view.kind === 'page' && page && page.id === view.id && (
-          <PageEditor
-            key={`${page.id}:${loadNonce}`}
-            page={page}
-            pages={pages}
-            onNavigate={openPage}
-            onChanged={() => void refreshLists().catch(reportError)}
-            onTrashed={() => {
-              void refreshLists().catch(reportError);
-              go({ kind: 'home' });
-            }}
-          />
-        )}
+          {view.kind === 'page' && page && page.id === view.id && (
+            <PageEditor
+              key={`${page.id}:${loadNonce}`}
+              page={page}
+              pages={pages}
+              onNavigate={openPage}
+              onChanged={() => void refreshLists().catch(reportError)}
+              onSelectionChange={onSelectionChange}
+              onTrashed={() => {
+                void refreshLists().catch(reportError);
+                go({ kind: 'home' });
+              }}
+            />
+          )}
 
-        {view.kind === 'tasks' && (
-          <TasksView
-            key={view.projectId ?? 'all'}
-            projects={projects}
-            initialProjectId={view.projectId}
-            pages={pages}
-            onOpenPage={openPage}
-            onProjectsChanged={() => void refreshLists().catch(reportError)}
-            onError={reportError}
-          />
-        )}
+          {view.kind === 'tasks' && (
+            <TasksView
+              key={view.projectId ?? 'all'}
+              projects={projects}
+              initialProjectId={view.projectId}
+              pages={pages}
+              onOpenPage={openPage}
+              onProjectsChanged={() => void refreshLists().catch(reportError)}
+              onError={reportError}
+            />
+          )}
 
-        {view.kind === 'search' && (
-          <SearchView
-            initialQuery={view.query}
-            onOpenPage={openPage}
-            onOpenTasks={() => go({ kind: 'tasks', projectId: null })}
-          />
-        )}
+          {view.kind === 'search' && (
+            <SearchView
+              initialQuery={view.query}
+              onOpenPage={openPage}
+              onOpenTasks={() => go({ kind: 'tasks', projectId: null })}
+            />
+          )}
 
-        {view.kind === 'settings' && (
-          <SettingsView
-            workspace={workspace}
-            onOpenPage={openPage}
-            onPagesChanged={() => void refreshLists().catch(reportError)}
-            onThemeChange={applyTheme}
-            onRestored={(info) => void enterWorkspace(info)}
-            onError={reportError}
-          />
-        )}
+          {view.kind === 'settings' && (
+            <SettingsView
+              workspace={workspace}
+              onOpenPage={openPage}
+              onPagesChanged={() => void refreshLists().catch(reportError)}
+              onThemeChange={applyTheme}
+              onRestored={(info) => void enterWorkspace(info)}
+              onError={reportError}
+            />
+          )}
 
-        {view.kind === 'meetings' && <MeetingsView onOpenPage={openPage} onError={reportError} />}
+          {view.kind === 'meetings' && <MeetingsView onOpenPage={openPage} onError={reportError} />}
 
-        {view.kind === 'recipes' && <RecipesView onError={reportError} />}
+          {view.kind === 'recipes' && <RecipesView onError={reportError} />}
 
-        {view.kind === 'trash' && (
-          <TrashView onRestored={() => void refreshLists().catch(reportError)} onError={reportError} />
-        )}
+          {view.kind === 'trash' && (
+            <TrashView onRestored={() => void refreshLists().catch(reportError)} onError={reportError} />
+          )}
+        </Suspense>
       </main>
 
       {assistantOpen && (
         <AssistantPanel
           pageId={view.kind === 'page' ? view.id : null}
           pageTitle={view.kind === 'page' && page ? page.title : null}
+          selectedText={selectedText}
           onOpenPage={openPage}
           onOpenTasks={() => go({ kind: 'tasks', projectId: null })}
           onOpenSettings={() => go({ kind: 'settings' })}

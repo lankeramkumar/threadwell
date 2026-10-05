@@ -32,24 +32,24 @@ AI assistant runs on a model you install on your own machine.
 
 ## What you can do
 
-| Area                        | What it does                                                                                                                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore.                               |
-| **Tasks**                   | Tasks with status, priority, optional due date and project. Table view and board view. Export to CSV.                                                                                 |
-| **Search**                  | One search box across pages and tasks, with highlighted matches. Ctrl+K command palette for jumping to any page or view.                                                              |
-| **Import and export**       | Import a Markdown or text file as a page. Export every page to Markdown files.                                                                                                        |
-| **Backup**                  | Full workspace backup to a folder, checksummed, and restore into an empty folder.                                                                                                     |
-| **AI assistant** (optional) | Ask questions about your notes and get answers with numbered sources. Rewrite, summarise, expand or translate selected text. Suggested changes are reviewed before anything is saved. |
-| **Meetings** (optional)     | Import a meeting transcript. Get a summary, decisions, open questions and action items, each linked to the lines it came from.                                                        |
-| **Recipes** (optional)      | Saved instructions that draft a page on a daily or weekly schedule while the app is open.                                                                                             |
+| Area                        | What it does                                                                                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore. Attach files (up to 25 MB) that are stored inside the workspace.                               |
+| **Tasks**                   | Tasks with status, priority, optional due date and project. Table view and board view with drag and drop. Export to CSV.                                                                                                                               |
+| **Search**                  | One search box across pages and tasks, with highlighted matches. Ctrl+K command palette for jumping to any page or view.                                                                                                                               |
+| **Import and export**       | Import single files or a whole folder of notes (Markdown, text, Word, text-based PDF and CSV). Watch a folder and sync its new notes. Export every page to Markdown files.                                                                             |
+| **Backup**                  | Full workspace backup to a folder, checksummed, and restore into an empty folder.                                                                                                                                                                      |
+| **AI assistant** (optional) | Ask questions about your notes and get answers with numbered sources. Use the selected text as context, search past conversations, and rewrite, summarise, expand or translate selected text. Suggested changes are reviewed before anything is saved. |
+| **Meetings** (optional)     | Import a meeting transcript (text, WebVTT or SRT), or a recording through a local transcription engine you install. Get a summary, decisions, open questions and action items, each linked to the lines it came from.                                  |
+| **Recipes** (optional)      | Saved instructions that draft a page on a daily or weekly schedule while the app is open.                                                                                                                                                              |
 
 Everything except the assistant, meetings and recipes works with no internet connection and no AI model installed.
 
 ## Download and install
 
 1. Go to the [Releases page](https://github.com/lankeramkumar/threadwell/releases) and download one of:
-   - `Threadwell_0.1.1_x64_en-US.msi`: Windows Installer package
-   - `Threadwell_0.1.1_x64-setup.exe`: setup program
+   - `Threadwell_0.1.2_x64_en-US.msi`: Windows Installer package
+   - `Threadwell_0.1.2_x64-setup.exe`: setup program
 2. Run it. If Windows SmartScreen says it protected your PC, click **More info**, then **Run anyway**. This happens
    because the installer is not code-signed.
 3. Start **Threadwell** from the Start menu.
@@ -252,8 +252,9 @@ Threadwell implements all six milestones in its brief. Details are in [docs/STAT
 - **Assistant quality:** fails four held-out gates. Treat its output as a draft.
 - **Platform:** Windows 11 only, verified on one machine.
 - **Installers:** unsigned, and not yet tested on a clean machine.
-- **Audio transcription:** not available. Import text transcripts instead.
-- **CSV and OneNote (`.one`) files:** not supported for import. Scanned PDFs have no text and cannot be imported.
+
+- **OneNote (`.one`) files:** not supported. Export them from OneNote as Word or Markdown first. Scanned PDFs have no text and cannot be imported.
+- **Audio transcription:** needs a local engine (for example whisper.cpp) and a model that you install yourself. It has not been tested end to end on this machine.
 - **Scheduled recipes:** run only while the app is open.
 - **Memory:** about 336 MiB across the app and its WebView2 processes when idle, above the 250 MiB target.
 - **Accessibility:** reviewed by inspection, not tested with assistive technology.

@@ -7,6 +7,7 @@ pub mod config;
 pub mod diff;
 #[cfg(test)]
 pub mod eval;
+pub mod history;
 pub mod provider;
 pub mod proposals;
 pub mod tools;

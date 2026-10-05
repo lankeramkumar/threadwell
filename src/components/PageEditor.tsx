@@ -14,6 +14,7 @@ import { breadcrumbs, formatTimestamp, isConflict, LINK_PREFIX, messageFor, subt
 import type { JsonNode, Page, PageSummary } from '../lib/types';
 import { SlashCommands } from './slashCommands';
 import { SelectionAssistant } from './SelectionAssistant';
+import { Attachments } from './Attachments';
 
 const AUTOSAVE_DELAY_MS = 800;
 const RETRY_DELAY_MS = 5000;
@@ -31,6 +32,7 @@ interface Snapshot {
 }
 
 interface Props {
+  onSelectionChange: (text: string | null) => void;
   page: Page;
   pages: PageSummary[];
   onNavigate: (id: string) => void;
@@ -43,7 +45,7 @@ interface Props {
  * fresh editor state. Edits are saved after a short pause and retried on failure.
  * A saved revision that no longer matches the database is reported as a conflict.
  */
-export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed }: Props) {
+export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed, onSelectionChange }: Props) {
   const [title, setTitle] = useState(page.title);
   const [favorite, setFavorite] = useState(page.isFavorite);
   const [aiExcluded, setAiExcluded] = useState(page.aiExcluded);
@@ -141,6 +143,20 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed }: Pr
       markDirty({ title: titleRef.current, body: instance.getJSON() as JsonNode });
     },
   });
+
+  // Tell the assistant panel what is selected, so it can offer it as context.
+  useEffect(() => {
+    if (!editor) return;
+    const report = () => {
+      const { from, to, empty } = editor.state.selection;
+      onSelectionChange(empty ? null : editor.state.doc.textBetween(from, to, '\n'));
+    };
+    editor.on('selectionUpdate', report);
+    return () => {
+      editor.off('selectionUpdate', report);
+      onSelectionChange(null);
+    };
+  }, [editor, onSelectionChange]);
 
   const active = useEditorState({
     editor,
@@ -423,6 +439,8 @@ export function PageEditor({ page, pages, onNavigate, onChanged, onTrashed }: Pr
       <div className="editor-wrap" onClick={onEditorClick}>
         <EditorContent editor={editor} />
       </div>
+
+      <Attachments pageId={page.id} onError={(e) => setActionError(messageFor(e))} />
 
       <section className="backlinks" aria-label="Pages that link here">
         <h2>Linked from</h2>

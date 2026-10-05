@@ -502,6 +502,8 @@ pub struct ChatRequest {
     pub page_id: Option<String>,
     /// Chosen by the client so it can route events before the command returns.
     pub run_id: Option<String>,
+    /// Text the user selected in the open page, sent only when they asked for it.
+    pub selected_text: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -589,10 +591,25 @@ pub async fn ai_chat_send(app: AppHandle, state: State<'_, AppState>, request: C
         turns.reverse();
         let history = agent::chat_history(&turns);
         // An excluded page is never sent to the model, not even as the open-page context.
-        let context = match &request.page_id {
+        let mut context = match &request.page_id {
             Some(page) if !knowledge::is_excluded(&a.conn, page)? => Some(page_context(&a.conn, &ws, page)?),
             _ => None,
         };
+        if let Some(selected) = request.selected_text.as_deref().filter(|t| !t.trim().is_empty()) {
+            let selected = check_text(selected, MAX_PAGE_CONTEXT_CHARS, "Selected text")?;
+            let safe = selected.replace("</untrusted_content", "<\\/untrusted_content");
+            let block = format!("<untrusted_content source=\"selection\">
+{safe}
+</untrusted_content>");
+            context = Some(match context {
+                Some(page) => format!("{page}
+
+Selected passage:
+{block}"),
+                None => format!("Selected passage:
+{block}"),
+            });
+        }
         a.conn.execute(
             "INSERT INTO ai_messages (id, workspace_id, conversation_id, role, content, created_at)
              VALUES (?1, ?2, ?3, 'user', ?4, ?5)",

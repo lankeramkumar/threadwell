@@ -227,3 +227,94 @@ mod tests {
     }
 }
 
+
+/// Parses CSV (RFC 4180: quoted fields, doubled quotes, commas or newlines inside quotes) and
+/// renders it as a Markdown table. The first row becomes the header. Ragged rows are padded.
+pub fn csv_to_markdown(text: &str) -> Result<String, String> {
+    const MAX_ROWS: usize = 2_000;
+    let rows = parse_csv(text)?;
+    let rows: Vec<Vec<String>> = rows.into_iter().filter(|r| r.iter().any(|c| !c.trim().is_empty())).collect();
+    let Some(header) = rows.first() else {
+        return Err("The CSV file has no rows".into());
+    };
+    let width = rows.iter().take(MAX_ROWS).map(Vec::len).max().unwrap_or(1).max(1);
+    let cell = |value: &str| value.replace('\n', " ").replace('|', "\\|").trim().to_string();
+    let line = |cells: &[String]| {
+        let padded: Vec<String> = (0..width).map(|i| cells.get(i).map(|c| cell(c)).unwrap_or_default()).collect();
+        format!("| {} |", padded.join(" | "))
+    };
+    let mut out = vec![line(header), format!("|{}", " --- |".repeat(width))];
+    out.extend(rows.iter().skip(1).take(MAX_ROWS - 1).map(|r| line(r)));
+    if rows.len() > MAX_ROWS {
+        out.push(String::new());
+        out.push(format!("_Only the first {MAX_ROWS} rows were imported._"));
+    }
+    Ok(out.join("\n"))
+}
+
+fn parse_csv(text: &str) -> Result<Vec<Vec<String>>, String> {
+    let mut rows = Vec::new();
+    let mut row = Vec::new();
+    let mut field = String::new();
+    let mut in_quotes = false;
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_quotes {
+            if c == '"' {
+                if chars.peek() == Some(&'"') {
+                    field.push('"');
+                    chars.next();
+                } else {
+                    in_quotes = false;
+                }
+            } else {
+                field.push(c);
+            }
+        } else {
+            match c {
+                '"' if field.is_empty() => in_quotes = true,
+                ',' => row.push(std::mem::take(&mut field)),
+                '\r' => {}
+                '\n' => {
+                    row.push(std::mem::take(&mut field));
+                    rows.push(std::mem::take(&mut row));
+                }
+                _ => field.push(c),
+            }
+        }
+    }
+    if in_quotes {
+        return Err("The CSV file has an unclosed quoted value".into());
+    }
+    if !field.is_empty() || !row.is_empty() {
+        row.push(field);
+        rows.push(row);
+    }
+    Ok(rows)
+}
+
+#[cfg(test)]
+mod csv_tests {
+    use super::*;
+
+    #[test]
+    fn csv_becomes_a_markdown_table_with_quoted_fields() {
+        let md = csv_to_markdown("Name,Note\nAna,\"likes, commas\"\nBen,\"says \"\"hi\"\"\"\n").unwrap();
+        assert!(md.starts_with("| Name | Note |"));
+        assert!(md.contains("| Ana | likes, commas |"));
+        assert!(md.contains("| Ben | says \"hi\" |"));
+    }
+
+    #[test]
+    fn ragged_rows_are_padded_and_pipes_escaped() {
+        let md = csv_to_markdown("a,b,c\n1,2\nx|y,z,w\n").unwrap();
+        assert!(md.contains("| 1 | 2 |  |"));
+        assert!(md.contains("x\\|y"));
+    }
+
+    #[test]
+    fn unclosed_quotes_and_empty_files_are_refused() {
+        assert!(csv_to_markdown("a,\"open\n").is_err());
+        assert!(csv_to_markdown("\n\n").is_err());
+    }
+}

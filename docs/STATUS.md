@@ -3,6 +3,21 @@
 This is the detailed checklist for every milestone in [intent.md](../intent.md): what is built, what is verified,
 and what is not. The overview is in the [README](../README.md).
 
+## Update for version 0.1.2 (latest measurements)
+
+These supersede the older numbers below where they conflict.
+
+| Item                                                | Result                                                                                                                                                           |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bulk creation of 5,000 pages (create and update)    | **34 s** (was about 190 s). Cause: each save deleted its search row by an unindexed column, which scanned the whole index. Fixed by deleting by rowid.           |
+| Search p95 at 5,000 pages                           | **1.29 ms** (was 2.75 ms)                                                                                                                                        |
+| Save of one page on a 5,000-page workspace          | p50 0.35 ms, p95 0.74 ms, measured in release. The 800 ms autosave pause dominates what the user sees. End-to-end UI time is not measured.                       |
+| Window visible on launch                            | 59 to 267 ms across three launches                                                                                                                               |
+| Idle memory, whole process tree (20 s after launch) | **372 MiB** across three launches: 380, 371, 372. Target is 250 MiB. Not met, and higher than the 336 MiB measured for 0.1.1. The cause has not been identified. |
+| Bundle                                              | Main JavaScript 238 kB (was 725 kB). The editor (480 kB) loads only when a page is opened.                                                                       |
+| Assistant, qwen2.5:7b on heldout2                   | 7 of 8 gated checks pass. Task keyword recall 0.50 fails. p50 87 s per case on CPU. See eval/README.md.                                                          |
+| Installers                                          | MSI 4.12 MiB, setup 3.10 MiB (unsigned)                                                                                                                          |
+
 ## Summary
 
 All six milestones in `intent.md` are implemented in this build, with the limits listed under each one. Two results

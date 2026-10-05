@@ -1,6 +1,9 @@
 // Typed wrappers around Tauri commands. Components call these, never `invoke` directly.
 import { invoke } from '@tauri-apps/api/core';
 import type {
+  Attachment,
+  ConversationHit,
+  FolderSync,
   ImportReport,
   ScanReport,
   IndexStatus,
@@ -71,8 +74,13 @@ export const api = {
   aiGetStatus: () => invoke<AiStatus>('ai_get_status'),
   aiSaveConfig: (endpoint: string, model: string, allowRemote: boolean) =>
     invoke<AiConfig>('ai_save_config', { endpoint, model, allowRemote }),
-  aiChatSend: (request: { runId: string; conversationId: string | null; message: string; pageId: string | null }) =>
-    invoke<RunStarted>('ai_chat_send', { request }),
+  aiChatSend: (request: {
+    runId: string;
+    conversationId: string | null;
+    message: string;
+    pageId: string | null;
+    selectedText: string | null;
+  }) => invoke<RunStarted>('ai_chat_send', { request }),
   aiPageAction: (request: { runId: string; pageId: string; action: string; language?: string; selectedText: string }) =>
     invoke<RunStarted>('ai_page_action', { request }),
   aiCancel: (runId: string) => invoke<boolean>('ai_cancel', { runId }),
@@ -95,7 +103,7 @@ export const api = {
   meetingsGet: (id: string) => invoke<MeetingDetail>('meetings_get', { id }),
   meetingsImportText: (title: string, text: string) => invoke<Meeting>('meetings_import_text', { title, text }),
   meetingsImportFile: (path: string) => invoke<Meeting>('meetings_import_file', { path }),
-  meetingsImportAudio: (path: string) => invoke<void>('meetings_import_audio', { path }),
+  meetingsImportAudio: (path: string) => invoke<Meeting>('meetings_import_audio', { path }),
   meetingsProcess: (id: string) => invoke<{ runId: string }>('meetings_process', { id }),
 
   recipesList: () => invoke<Recipe[]>('recipes_list'),
@@ -105,6 +113,18 @@ export const api = {
   recipeRunsList: (recipeId: string) => invoke<RecipeRun[]>('recipe_runs_list', { recipeId }),
   recipeRunNow: (recipeId: string) => invoke<string>('recipe_run_now', { recipeId }),
 
+  attachmentsList: (pageId: string) => invoke<Attachment[]>('attachments_list', { pageId }),
+  attachmentAdd: (pageId: string, srcPath: string) => invoke<Attachment>('attachment_add', { pageId, srcPath }),
+  attachmentRemove: (id: string) => invoke<void>('attachment_remove', { id }),
+  attachmentReveal: (id: string) => invoke<void>('attachment_reveal', { id }),
+  aiSearchConversations: (query: string) => invoke<ConversationHit[]>('ai_search_conversations', { query }),
+  aiDeleteRun: (runId: string) => invoke<void>('ai_delete_run', { runId }),
+  localWatchedFolders: () => invoke<string[]>('local_watched_folders'),
+  localSetWatched: (path: string, watch: boolean) => invoke<string[]>('local_set_watched', { path, watch }),
+  localSyncNow: () => invoke<FolderSync[]>('local_sync_now'),
+  audioSettingsGet: () => invoke<[string | null, string | null]>('audio_settings_get'),
+  audioSettingsSave: (enginePath: string, modelPath: string) =>
+    invoke<void>('audio_settings_save', { enginePath, modelPath }),
   localScanFolder: (path: string) => invoke<ScanReport>('local_scan_folder', { path }),
   localImportFolder: (path: string, relativePaths: string[], parentId: string | null) =>
     invoke<ImportReport>('local_import_folder', { path, relativePaths, parentId }),

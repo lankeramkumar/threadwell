@@ -348,3 +348,29 @@ export interface ImportReport {
   failed: { relativePath: string; reason: string }[];
   pageIds: string[];
 }
+
+// ---- attachments, history, sync, audio ----------------------------------------
+
+export interface Attachment {
+  id: string;
+  pageId: string;
+  fileName: string;
+  size: number;
+  sha256: string;
+  createdAt: string;
+}
+
+export interface ConversationHit {
+  conversationId: string;
+  title: string;
+  snippet: string;
+  updatedAt: string;
+}
+
+export interface FolderSync {
+  path: string;
+  imported: number;
+  changed: number;
+  failed: number;
+  error: string | null;
+}
