@@ -437,6 +437,60 @@ fn live_ollama_answers_from_the_workspace_with_a_citation() {
 }
 
 #[test]
+#[ignore = "needs Ollama running with qwen2.5:3b"]
+fn live_ollama_answers_from_linked_source_code_with_a_file_citation() {
+    use super::provider::Readiness;
+    use std::sync::{Arc, Mutex};
+    let client = OllamaClient::new("http://127.0.0.1:11434", "qwen2.5:3b");
+    assert_eq!(client.check(), Readiness::Ready, "start Ollama and pull qwen2.5:3b first");
+
+    let dir = tempfile::tempdir().unwrap();
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("sample-repo");
+    let active = Arc::new(Mutex::new(Some(crate::workspace::create(&dir.path().join("ws"), "Live", false).unwrap())));
+    let source = util::new_id();
+    {
+        let guard = active.lock().unwrap();
+        let a = guard.as_ref().unwrap();
+        a.conn
+            .execute(
+                "INSERT INTO sources (id, workspace_id, root_path, name, added_at) VALUES (?1, ?2, ?3, 'sample', ?4)",
+                params![source, a.info.id, repo.display().to_string(), util::now()],
+            )
+            .unwrap();
+    }
+    let report = crate::sources::sync_source(&active, &source).unwrap();
+    assert!(report.added >= 5, "the sample project was linked: {report:?}");
+
+    let guard = active.lock().unwrap();
+    let a = guard.as_ref().unwrap();
+    let question = "How are duplicate charges prevented?";
+    let weights = crate::knowledge::Weights { lexical: 1.0, vector: 0.0 };
+    let hits = crate::knowledge::retrieve(&a.conn, &a.info.id, question, None, "", crate::knowledge::Mode::Lexical, weights, 6).unwrap();
+    let block = super::commands::retrieved_block(&hits);
+    let seeds: Vec<tools::Source> = hits
+        .iter()
+        .map(|h| tools::Source { kind: "page".into(), id: h.page_id.clone(), title: h.title.clone() })
+        .collect();
+    let tools_schema = tools::schemas();
+    let flag = AtomicBool::new(false);
+    let mut host = TestHost { conn: &a.conn, ws: &a.info.id, proposals: Vec::new(), deltas: String::new() };
+    let initial = vec![
+        json!({ "role": "system", "content": agent::system_prompt(None, Some(&block)) }),
+        json!({ "role": "user", "content": question }),
+    ];
+    let outcome = agent::run_loop(&client, &mut host, initial, Some(&tools_schema), &flag, seeds);
+    println!("LIVE outcome: {outcome:?}");
+    let Outcome::Completed { content, sources, .. } = outcome else {
+        panic!("live run did not complete: {outcome:?}");
+    };
+    let (clean, citations, _invalid) = agent::resolve_citations(&content, &sources);
+    println!("LIVE answer: {clean}");
+    println!("LIVE citations: {citations:?}");
+    assert!(clean.to_lowercase().contains("idempoten"), "answer did not mention the idempotency key");
+    assert!(citations.iter().any(|c| c.title == "src/charge.rs"), "answer did not cite the linked file");
+}
+
+#[test]
 fn due_dates_are_kept_only_when_a_workspace_page_states_them() {
     let f = fixture();
     page_with(&f, "Plan", "The launch review is on 2026-10-09.");

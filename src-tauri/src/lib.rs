@@ -1,4 +1,4 @@
-//! Threadwell desktop backend. The frontend talks only to the typed commands in
+﻿//! Threadwell desktop backend. The frontend talks only to the typed commands in
 //! `commands`; storage, validation and file access live behind them.
 
 mod ai;
@@ -15,6 +15,7 @@ mod recipes;
 mod pages;
 mod sample;
 mod search;
+mod sources;
 mod tasks;
 mod telemetry;
 mod transfer;
@@ -34,6 +35,7 @@ pub fn run() {
             app.manage(AppState::new(config_dir));
             let state = app.state::<AppState>();
             recipes::start_scheduler(app.handle().clone(), state.active.clone());
+            sources::start_watcher(state.active.clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -89,6 +91,11 @@ pub fn run() {
             workspaces::workspace_switch,
             workspaces::workspace_rename,
             workspaces::workspace_forget,
+            workspaces::workspace_pages,
+            sources::sources_list,
+            sources::sources_add,
+            sources::sources_sync,
+            sources::sources_remove,
             commands::list_pages,
             commands::list_trash,
             commands::get_page,

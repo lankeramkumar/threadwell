@@ -12,6 +12,7 @@ use tauri::State;
 
 use crate::commands::{install, with_active, AppState};
 use crate::error::{validation, AppError, AppResult};
+use crate::pages::{self, PageSummary};
 use crate::workspace::{self, WorkspaceInfo};
 use crate::{db, util};
 
@@ -160,6 +161,28 @@ pub async fn workspaces_list(state: State<'_, AppState>) -> AppResult<Vec<ListIt
     Ok(list(&state.config_dir, active_path.as_deref()))
 }
 
+/// True when `path` is a workspace in the registry. Pages are only ever read from registered
+/// workspaces, so this command cannot be pointed at an arbitrary database file.
+pub fn is_registered(config_dir: &Path, path: &str) -> bool {
+    load(config_dir).iter().any(|e| e.path == path)
+}
+
+/// Pages of one workspace, for the sidebar. The open workspace uses its own connection. Any other
+/// registered workspace is read on a read-only connection, and nothing is changed.
+#[tauri::command]
+pub async fn workspace_pages(state: State<'_, AppState>, path: String) -> AppResult<Vec<PageSummary>> {
+    let open_path = with_active(&state.active, |a| Ok(a.root.display().to_string())).ok();
+    if open_path.as_deref() == Some(path.as_str()) {
+        return with_active(&state.active, |a| pages::list(&a.conn, &a.info.id));
+    }
+    if !is_registered(&state.config_dir, &path) {
+        return validation("That workspace is not in your list");
+    }
+    let conn = open_read_only(&path)?;
+    let ws = workspace_id(&conn)?;
+    pages::list(&conn, &ws)
+}
+
 /// Makes another workspace the open one. Runs in progress are cancelled first.
 #[tauri::command]
 pub async fn workspace_switch(state: State<'_, AppState>, path: String) -> AppResult<WorkspaceInfo> {
@@ -260,5 +283,10 @@ mod tests {
         let in_home = crate::knowledge::retrieve(&home, home_ws, "passkeys", None, "m", crate::knowledge::Mode::Lexical, weights, 5).unwrap();
         assert_eq!(in_work.len(), 1);
         assert!(in_home.is_empty(), "the home workspace never sees work pages");
+        let work_titles: Vec<String> = pages::list(&work, work_ws).unwrap().into_iter().map(|p| p.title).collect();
+        let home_titles: Vec<String> = pages::list(&home, home_ws).unwrap().into_iter().map(|p| p.title).collect();
+        assert_eq!(work_titles, vec!["Work note".to_string()]);
+        assert_eq!(home_titles, vec!["Home note".to_string()]);
+        assert!(!is_registered(base.path(), "nope"));
     }
 }

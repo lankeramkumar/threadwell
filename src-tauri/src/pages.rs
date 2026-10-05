@@ -30,6 +30,8 @@ pub struct PageSummary {
     pub is_favorite: bool,
     pub deleted_at: Option<String>,
     pub updated_at: String,
+    /// Set for pages that mirror a linked source file. Those pages are read only.
+    pub source_id: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -44,6 +46,8 @@ pub struct Page {
     pub ai_excluded: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub source_id: Option<String>,
+    pub source_path: Option<String>,
 }
 
 pub fn validate_body(body: &Value) -> AppResult<String> {
@@ -59,7 +63,7 @@ pub fn validate_body(body: &Value) -> AppResult<String> {
 
 pub fn list(conn: &Connection, ws: &str) -> AppResult<Vec<PageSummary>> {
     let mut stmt = conn.prepare(
-        "SELECT id, parent_id, title, revision, is_favorite, deleted_at, updated_at
+        "SELECT id, parent_id, title, revision, is_favorite, deleted_at, updated_at, source_id
          FROM pages WHERE workspace_id = ?1 AND deleted_at IS NULL
          ORDER BY position, title COLLATE NOCASE",
     )?;
@@ -69,7 +73,7 @@ pub fn list(conn: &Connection, ws: &str) -> AppResult<Vec<PageSummary>> {
 
 pub fn list_trash(conn: &Connection, ws: &str) -> AppResult<Vec<PageSummary>> {
     let mut stmt = conn.prepare(
-        "SELECT id, parent_id, title, revision, is_favorite, deleted_at, updated_at
+        "SELECT id, parent_id, title, revision, is_favorite, deleted_at, updated_at, source_id
          FROM pages WHERE workspace_id = ?1 AND deleted_at IS NOT NULL
          ORDER BY deleted_at DESC",
     )?;
@@ -86,6 +90,7 @@ fn summary_row(row: &rusqlite::Row) -> rusqlite::Result<PageSummary> {
         is_favorite: row.get::<_, i64>(4)? == 1,
         deleted_at: row.get(5)?,
         updated_at: row.get(6)?,
+        source_id: row.get(7)?,
     })
 }
 
@@ -93,7 +98,7 @@ pub fn get(conn: &Connection, ws: &str, id: &str) -> AppResult<Page> {
     util::validate_id(id)?;
     let row = conn
         .query_row(
-            "SELECT id, parent_id, title, body_json, revision, is_favorite, created_at, updated_at
+            "SELECT id, parent_id, title, body_json, revision, is_favorite, created_at, updated_at, source_id, source_path
              FROM pages WHERE id = ?1 AND workspace_id = ?2 AND deleted_at IS NULL",
             params![id, ws],
             |row| {
@@ -106,11 +111,13 @@ pub fn get(conn: &Connection, ws: &str, id: &str) -> AppResult<Page> {
                     row.get::<_, i64>(5)?,
                     row.get::<_, String>(6)?,
                     row.get::<_, String>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                    row.get::<_, Option<String>>(9)?,
                 ))
             },
         )
         .optional()?;
-    let Some((id, parent_id, title, body_json, revision, fav, created_at, updated_at)) = row else {
+    let Some((id, parent_id, title, body_json, revision, fav, created_at, updated_at, source_id, source_path)) = row else {
         return Err(AppError::NotFound("Page".into()));
     };
     let ai_excluded: i64 = conn.query_row("SELECT ai_excluded FROM pages WHERE id = ?1", params![id], |r| r.get(0))?;
@@ -124,6 +131,8 @@ pub fn get(conn: &Connection, ws: &str, id: &str) -> AppResult<Page> {
         ai_excluded: ai_excluded == 1,
         created_at,
         updated_at,
+        source_id,
+        source_path,
     })
 }
 
@@ -170,8 +179,28 @@ pub fn create(conn: &Connection, ws: &str, title: &str, parent: Option<&str>) ->
     get(conn, ws, &id)
 }
 
-/// Saves title and body if `expected_revision` still matches the stored revision.
+/// Saves title and body if `expected_revision` still matches the stored revision. Pages that mirror
+/// a linked source file are refused: they change only when the file changes on disk.
 pub fn update(
+    conn: &Connection,
+    ws: &str,
+    id: &str,
+    title: &str,
+    body: &Value,
+    expected_revision: i64,
+) -> AppResult<Page> {
+    let mirrored: Option<String> = conn
+        .query_row("SELECT source_id FROM pages WHERE id = ?1 AND workspace_id = ?2", params![id, ws], |r| r.get(0))
+        .optional()?
+        .flatten();
+    if mirrored.is_some() {
+        return validation("This file comes from a linked folder and is read only. Change it in the folder instead.");
+    }
+    save(conn, ws, id, title, body, expected_revision)
+}
+
+/// The write behind `update`, without the read-only check. Only the source sync calls this directly.
+pub(crate) fn save(
     conn: &Connection,
     ws: &str,
     id: &str,
@@ -226,7 +255,7 @@ fn refresh_links(tx: &Connection, ws: &str, id: &str, body: &Value) -> AppResult
 pub fn backlinks(conn: &Connection, ws: &str, id: &str) -> AppResult<Vec<PageSummary>> {
     ensure_live(conn, ws, id)?;
     let mut stmt = conn.prepare(
-        "SELECT p.id, p.parent_id, p.title, p.revision, p.is_favorite, p.deleted_at, p.updated_at
+        "SELECT p.id, p.parent_id, p.title, p.revision, p.is_favorite, p.deleted_at, p.updated_at, p.source_id
          FROM page_links l JOIN pages p ON p.id = l.from_page_id
          WHERE l.to_page_id = ?1 AND p.workspace_id = ?2 AND p.deleted_at IS NULL
          ORDER BY p.title COLLATE NOCASE",
