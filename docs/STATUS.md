@@ -210,8 +210,8 @@ Built on Windows 11 with `npm run tauri build` (release profile, LTO). These are
 
 | File                                                                  | Size     | Signed |
 | --------------------------------------------------------------------- | -------- | ------ |
-| `src-tauri/target/release/bundle/msi/Threadwell_0.1.0_x64_en-US.msi`  | 3.55 MiB | No     |
-| `src-tauri/target/release/bundle/nsis/Threadwell_0.1.0_x64-setup.exe` | 2.68 MiB | No     |
+| `src-tauri/target/release/bundle/msi/Threadwell_0.1.1_x64_en-US.msi`  | 4.07 MiB | No     |
+| `src-tauri/target/release/bundle/nsis/Threadwell_0.1.1_x64-setup.exe` | 3.07 MiB | No     |
 
 The release executable starts, stays responsive, and shows a window titled "Threadwell". Installing the MSI or NSIS
 package on a clean machine has not been tested.
@@ -241,7 +241,7 @@ Measured in milestone 6 (Windows 11, release build, same machine as the model se
 | Cold usable window within 3 s          | Window visible in 80 ms (median of 3); 452 ms on the first launch after install. "Usable" (first page rendered and interactive) is not measured separately | Met for the window; usability not timed                           |
 | Idle app memory below 250 MB           | App process alone: 26 MiB. Whole process tree (app plus 6 WebView2 processes), working set after 20 s idle: **336 MiB**                                    | **Not met** on working-set accounting. Private bytes not measured |
 | Autosave within 1 s after typing stops | Debounce is 800 ms in code. End-to-end time in the UI not measured                                                                                         | Not measured                                                      |
-| Installer size, published              | MSI 3.55 MiB, NSIS 2.68 MiB. Requires WebView2 (preinstalled on Windows 11)                                                                                | Reported                                                          |
+| Installer size, published              | MSI 4.07 MiB, NSIS 3.07 MiB (version 0.1.1). Requires WebView2 (preinstalled on Windows 11)                                                                | Reported                                                          |
 
 The bundle is about 725 kB before gzip, mostly the editor. Lazy-loading the editor is the next candidate if memory or
 startup needs to come down.
