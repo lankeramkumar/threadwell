@@ -373,11 +373,14 @@ steps([
     "Threadwell reads the files. Each one appears as a read-only page titled with its path, such as src/charge.rs.",
     "Source code, configuration, Markdown, text, Word, text-based PDF and CSV files are read. Build output, dependencies, hidden files, lock files and anything in the folder's .gitignore are skipped.",
     "Click Show files to open a linked file. It is read only.",
-    "Ask the assistant a question about the project. Click a source to open that file.",
+    "Ask the assistant a question about the project. For code, the citation names the file and the lines, such as src/charge.rs · Lines 41–80. Click it to see that part of the file.",
+    "Drop a folder on the Threadwell window to link it, or drop a Markdown or text file to import it as a note.",
+    "On a linked file, use Summarise this file, List open items or Explain how it works. The question goes into the assistant box, ready to send.",
+    "New workspace: tick the sample option and the sample project is written to a sample-project folder inside the workspace and linked.",
     "Click Sync now to check for changes at once. Threadwell also checks about once a minute while it is open.",
     "Click Unlink to remove the link. The files move to Trash. The folder is not changed.",
 ])
-note("Limits: 5,000 files per folder. Answers cite the file, not the line numbers. Checks happen only while Threadwell is open. Try the sample project in samples\\sample-repo.")
+note("Limits: 5,000 files per folder. For code, answers name the file and the line section, for example Lines 41–80. Checks happen only while Threadwell is open. Try the sample project in samples\\sample-repo.")
 
 doc.add_heading("15. Troubleshooting", level=1)
 table(["Problem", "Cause and fix"], [

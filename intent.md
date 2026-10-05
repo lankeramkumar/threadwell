@@ -117,7 +117,7 @@ Start with lexical search, then add semantic retrieval in milestone 3. Chunk by 
 
 Use hybrid ranking with configurable lexical/vector weights. Prefer a simple embedded vector index; do not require a hosted vector database. Reindex changed pages, exclude deleted pages promptly, and invalidate stale embeddings by content hash and embedding-model identity.
 
-Every citation must correspond to a retrieved source ID, not a model-invented filename. Citations to linked files name the file's relative path. Citations to lines within a file are planned, not yet built. Validate citation IDs before rendering. If sources changed after retrieval, indicate staleness or rerun retrieval. Treat page, import and linked-file content as untrusted data, not instructions granting tool access. Linked-file pages are never editable from the app; a change to the file arrives through the next sync. Keep retrieval scoped to the active workspace and user-selected context. Other workspaces are searched only when the user selects them, by keyword, read-only, and each hit is labelled with its workspace name. Allow exclusion of pages from AI context.
+Every citation must correspond to a retrieved source ID, not a model-invented filename. Citations to linked files name the file's relative path. For source code, a citation also names the section it drew on, such as "src/charge.rs · Lines 41–80", and clicking it brings that section into view. Documents cite the file, and where the document has headings, the heading. Validate citation IDs before rendering. If sources changed after retrieval, indicate staleness or rerun retrieval. Treat page, import and linked-file content as untrusted data, not instructions granting tool access. Linked-file pages are never editable from the app; a change to the file arrives through the next sync. Keep retrieval scoped to the active workspace and user-selected context. Other workspaces are searched only when the user selects them, by keyword, read-only, and each hit is labelled with its workspace name. Allow exclusion of pages from AI context.
 
 ## 9. Agent behavior and mutation protocol
 
@@ -137,7 +137,7 @@ Milestone 4 supports pasted/imported transcripts before live capture. Audio impo
 
 Store API keys in the operating system credential store, not localStorage, exported backups, or plaintext config. Local endpoint addresses are configurable; allow remote endpoints only through explicit settings. State which selected context/audio is transmitted when using cloud providers. Do not label cloud processing as offline or promise provider retention/training terms without checking the configured service.
 
-Linked folders are read only. Threadwell never writes to them, and skips build output, dependencies, hidden files, lock files, binaries, and files over 1 MB (code) or 5 MB (documents). Syncing happens while the app is open.
+Dropping a file or folder on the window only links a folder or imports a Markdown or text file. It does not move or change the original. Linked folders are read only. Threadwell never writes to them, and skips build output, dependencies, hidden files, lock files, binaries, and files over 1 MB (code) or 5 MB (documents). Syncing happens while the app is open.
 
 Do not collect telemetry by default. Local performance traces are opt-in: they are written to a file on the user's computer in OpenTelemetry format, record names, counts and timings but no prompts, answers or page text, and can be deleted. Never log API keys. Diagnostic traces should minimize sensitive content and support deletion. Render imported HTML/Markdown and model output safely, restrict external navigation, and sanitize filenames and paths. Make no enterprise security certification claims.
 
@@ -152,7 +152,7 @@ Do not collect telemetry by default. Local performance traces are opt-in: they a
 
 Status after milestone 6: milestones 1 to 6 are built and released as 0.1.3. Version 0.1.4 adds several workspaces with scoped assistant retrieval and the several-agent fixes. Remaining gaps are listed in docs/STATUS.md.
 
-7. **Linked sources and project questions:** link folders, read documents and source code, keep linked files in step while the app is open, cite the file behind each answer, and evaluate questions about code on a pre-registered split. First part (linking, read-only mirroring, file citations) built. Still to do: citations to line ranges, a code-question evaluation split, and an in-app file viewer.
+7. **Linked sources and project questions:** link folders, read documents and source code, keep linked files in step while the app is open, cite the file behind each answer, and evaluate questions about code on a pre-registered split. Built: linking, read-only mirroring, file citations with section labels for code, drag and drop of folders and Markdown or text files, "Ask about this file" and folder questions, and a sample project that new workspaces can include. Still to do: a code-question evaluation split, and syntax highlighting in the file view.
 
 Future extensions: selected-folder indexing, authenticated connectors, custom task properties, live audio capture, optional background service, and collaboration. Document connector authentication and authorization requirements before implementing external access.
 

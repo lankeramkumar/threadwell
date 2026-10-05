@@ -3,6 +3,15 @@
 This is the detailed checklist for every milestone in [intent.md](../intent.md): what is built, what is verified,
 and what is not. The overview is in the [README](../README.md).
 
+## Update for line citations and quick actions (unreleased, after 0.1.4)
+
+| Item                             | Status                                                                                                                                                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Line-range citations for code    | Built. Citations to linked code name the section, such as "src/charge.rs · Lines 41–80". Clicking scrolls to it. Live-tested with `qwen2.5:3b`: the section label appears when the answer cites the file. |
+| Drag and drop                    | Built. Folders are linked, and Markdown and text files imported. The backend command is tested. The drop event itself is not tested automatically.                                                        |
+| Quick questions                  | Built. Summarise, list open items and explain on a linked file; ask about a linked folder. Each puts a question in the assistant box.                                                                     |
+| Sample project in new workspaces | Built. The sample option writes a `sample-project` folder inside the workspace and links it.                                                                                                              |
+
 ## Update for linked sources (unreleased, after 0.1.4)
 
 | Item                                 | Status                                                                                                                                                                                                                            |
@@ -13,9 +22,9 @@ and what is not. The overview is in the [README](../README.md).
 | Keep in step                         | Built. Files are compared by modified time and size, and re-read only when they change. New files are added, changed files updated, and deleted files moved to Trash. The watcher runs about once a minute while the app is open. |
 | Read only                            | Built. Linked-file pages refuse edits in the backend and the editor. Nothing is written to the folder.                                                                                                                            |
 | Assistant answers about linked files | Built and tested live: `qwen2.5:3b`, sample project, question about duplicate charges. The answer cited `src/charge.rs` (ignored test `live_ollama_answers_from_linked_source_code_with_a_file_citation`).                        |
-| Citations to line ranges             | Not built. Citations name the file.                                                                                                                                                                                               |
+| Citations to line ranges             | Built for code. Each citation names the section it drew on, such as src/charge.rs · Lines 41–80, and clicking it scrolls to that section. Documents cite the file and the heading.                                                |
 | Code-question evaluation split       | Not built. It needs a pre-registered split before results are reported.                                                                                                                                                           |
-| In-app file viewer with line numbers | Not built. Linked files open in the read-only page view.                                                                                                                                                                          |
+| In-app file view                     | Linked files open in the read-only page view. Line numbers are in the section headings, not in the margin. Syntax highlighting is not built.                                                                                      |
 | Scale                                | 5,000 files per folder. Not measured on a large real repository.                                                                                                                                                                  |
 
 ## Update for version 0.1.4

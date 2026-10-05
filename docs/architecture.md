@@ -160,6 +160,20 @@ compares fingerprints (modified time and size) under the lock. Changed files are
 the changes are applied in batches of 40 under the lock, so other commands can run between batches. A workspace switch during a
 sync stops it. A per-source guard stops two syncs of the same source from running together.
 
+### Section labels, drops and the sample project
+
+A source file's code is stored as one heading per block of 40 lines ("Lines 41–80"), each followed by its code block. Retrieval
+is still per page. After a page is retrieved, `ai::commands::label_section` asks `knowledge::source_section` which heading's
+chunk holds the most question terms, and uses that heading as the section. The section is carried on `Retrieved`, `Source`
+and `Citation`, and the citation title reads "file · section". The UI passes the section to the page view, which scrolls to the
+heading with that text. The labelling is skipped for notes, and when no chunk matches, so a citation falls back to the file.
+
+`sources_drop` takes the paths from a drop on the window. A folder goes through `link_path`, the same code as the Link button. A
+Markdown or text file goes through `transfer::import_markdown`. Anything else is reported with the way to bring it in.
+
+The sample project under `samples/sample-repo` is compiled in with `include_str!`. `sample::write_project` writes it into
+`<workspace>/sample-project` when a workspace is created with the sample option, and never overwrites an existing file.
+
 ## Workspaces (version 0.1.4)
 
 Each workspace is a folder with its own `threadwell.db`, so pages, tasks, meetings, recipes and assistant history never mix.

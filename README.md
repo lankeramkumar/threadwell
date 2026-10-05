@@ -32,18 +32,18 @@ AI assistant runs on a model you install on your own machine.
 
 ## What you can do
 
-| Area                        | What it does                                                                                                                                                                                                                                                                                      |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore. Attach files (up to 25 MB) that are stored inside the workspace.                                                                          |
-| **Tasks**                   | Tasks with status, priority, optional due date and project. Table view and board view with drag and drop. Export to CSV.                                                                                                                                                                          |
-| **Search**                  | One search box across pages and tasks, with highlighted matches. Ctrl+K command palette for jumping to any page or view.                                                                                                                                                                          |
-| **Import and export**       | Import single files or a whole folder of notes (Markdown, text, Word, text-based PDF and CSV). Watch a folder and sync its new notes. Export every page to Markdown files.                                                                                                                        |
-| **Backup**                  | Full workspace backup to a folder, checksummed, and restore into an empty folder.                                                                                                                                                                                                                 |
-| **AI assistant** (optional) | Ask questions about your notes and get answers with numbered sources. Use the selected text as context, search past conversations, and rewrite, summarise, expand or translate selected text. Suggested changes are reviewed before anything is saved.                                            |
-| **Meetings** (optional)     | Import a meeting transcript (text, WebVTT or SRT), or a recording through a local transcription engine you install. Get a summary, decisions, open questions and action items, each linked to the lines it came from.                                                                             |
-| **Recipes** (optional)      | Saved instructions that draft a page on a daily or weekly schedule while the app is open.                                                                                                                                                                                                         |
-| **Linked folders**          | Link a project folder or a folder of documents. Threadwell reads the files (source code and configuration, Markdown, text, Word, text-based PDF, CSV) and keeps them in step while it is open. Ask the assistant about them; each answer names the file it came from. Linked files are read only. |
-| **Workspaces**              | Several separate workspaces, each with its own pages, tasks and history, switchable in Settings. The assistant can answer from one, or from all of them.                                                                                                                                          |
+| Area                        | What it does                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore. Attach files (up to 25 MB) that are stored inside the workspace.                                                                                                                                                |
+| **Tasks**                   | Tasks with status, priority, optional due date and project. Table view and board view with drag and drop. Export to CSV.                                                                                                                                                                                                                                                |
+| **Search**                  | One search box across pages and tasks, with highlighted matches. Ctrl+K command palette for jumping to any page or view.                                                                                                                                                                                                                                                |
+| **Import and export**       | Import single files or a whole folder of notes (Markdown, text, Word, text-based PDF and CSV). Watch a folder and sync its new notes. Export every page to Markdown files.                                                                                                                                                                                              |
+| **Backup**                  | Full workspace backup to a folder, checksummed, and restore into an empty folder.                                                                                                                                                                                                                                                                                       |
+| **AI assistant** (optional) | Ask questions about your notes and get answers with numbered sources. Use the selected text as context, search past conversations, and rewrite, summarise, expand or translate selected text. Suggested changes are reviewed before anything is saved.                                                                                                                  |
+| **Meetings** (optional)     | Import a meeting transcript (text, WebVTT or SRT), or a recording through a local transcription engine you install. Get a summary, decisions, open questions and action items, each linked to the lines it came from.                                                                                                                                                   |
+| **Recipes** (optional)      | Saved instructions that draft a page on a daily or weekly schedule while the app is open.                                                                                                                                                                                                                                                                               |
+| **Linked folders**          | Link a project folder or a folder of documents, by button or by dragging it onto the window. Threadwell reads the files (source code and configuration, Markdown, text, Word, text-based PDF, CSV) and keeps them in step while it is open. Ask the assistant about them: each answer names the file and, for code, the lines it came from. Linked files are read only. |
+| **Workspaces**              | Several separate workspaces, each with its own pages, tasks and history, switchable in Settings. The assistant can answer from one, or from all of them.                                                                                                                                                                                                                |
 
 Everything except the assistant, meetings and recipes works with no internet connection and no AI model installed.
 
@@ -222,10 +222,21 @@ itself is never changed.
    The source is searched like your notes, and the assistant can also search other workspaces you select.
 5. **Unlink** removes the link. The files become ordinary pages in Trash, and the folder itself is not touched.
 
-Limits: 5,000 files per folder. Citations name the file, not the line numbers. The sync only runs while Threadwell is
+Limits: 5,000 files per folder. Citations name the file and, for code, the line section. The sync only runs while Threadwell is
 open. A file that changes without changing its size or modified time is not noticed until its size or time changes.
 
-Try it with the sample project in `samples/sample-repo`.
+Try it with the sample project in `samples/sample-repo`. New workspaces can also include a copy of it: tick the sample
+option when you create a workspace, and the project is written to a `sample-project` folder inside the workspace and linked.
+
+**Citations name the lines.** For source code, each citation names the section it drew on, such as
+`src/charge.rs · Lines 41–80`. Click it and Threadwell brings that section into view. Documents cite the file, and the
+heading where they have one.
+
+**Drag and drop.** Drop a folder on the window to link it. Drop a Markdown or text file to import it as a note. Other file
+types are reported, with the way to bring them in. The original files are never changed.
+
+**Quick questions.** On a linked file, **Summarise this file**, **List open items** and **Explain how it works** put a
+question in the assistant box, ready to send. On a linked folder, **Ask about this folder** does the same.
 
 ### Several workspaces
 

@@ -41,6 +41,20 @@ enforces it, and says what is still verified by hand. A gate marked **manual** i
 - Scheduled runs happen only while the app is open. No background service is installed.
 - Semantic evaluation needs a human rubric review. The automatic checks in the harness are heuristics.
 
+## Citations, drops and quick questions
+
+- Ask "How is the retry delay calculated?" with the sample project linked. A citation for `src/retry.py` shows a section label.
+  Clicking it opens the file and scrolls to that section. The label is only shown when the answer cites the file.
+- On a linked file, click **Summarise this file**. The assistant box fills with the question, and the file is in the context.
+- On a linked folder, click **Ask about this folder**. The box fills with the question.
+- Drop a folder on the window. It is linked, and the Sources view opens. Drop a `.md` file. It is imported as a note, and the
+  original file is unchanged. Drop a `.rs` file. It is reported as skipped, with the way to bring it in.
+- Create a workspace with the sample option. The sample project appears in Sources with six files.
+
+Automated: `sources::tests` covers section headings, section matching, and the sample writer. `ai::tests` covers section labels
+through the live test. Drag and drop itself is not tested automatically: the desktop drop event cannot be simulated in the test
+environment. Its backend command is tested by calling it directly.
+
 ## Linked sources checks
 
 - Link `samples/sample-repo` from Sources. Its six files appear as pages titled with their paths, and `.gitignore` is not linked.
