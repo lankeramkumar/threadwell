@@ -7,6 +7,7 @@ import { AudioTranscription } from './AudioTranscription';
 import { TelemetrySettings } from './TelemetrySettings';
 import { AiRetrieval } from './AiRetrieval';
 import { RunHistory } from './RunHistory';
+import { WorkspacesPanel } from './WorkspacesPanel';
 import type { ThemeChoice } from '../lib/theme';
 import type { WorkspaceInfo } from '../lib/types';
 
@@ -16,11 +17,22 @@ interface Props {
   onPagesChanged: () => void;
   onThemeChange: (theme: ThemeChoice) => void;
   onRestored: (workspace: WorkspaceInfo) => void;
+  onSwitched: (workspace: WorkspaceInfo) => void;
+  onNewWorkspace: () => void;
   onError: (error: unknown) => void;
 }
 
 /** Workspace settings, import/export, backup and restore. */
-export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored, onPagesChanged, onError }: Props) {
+export function SettingsView({
+  workspace,
+  onOpenPage,
+  onThemeChange,
+  onRestored,
+  onSwitched,
+  onNewWorkspace,
+  onPagesChanged,
+  onError,
+}: Props) {
   const [theme, setTheme] = useState<ThemeChoice>('system');
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -133,6 +145,8 @@ export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored,
         </dl>
       </section>
 
+      <WorkspacesPanel onSwitched={onSwitched} onNewWorkspace={onNewWorkspace} onError={onError} />
+
       <section aria-labelledby="appearance-heading" className="panel">
         <h2 id="appearance-heading">Appearance</h2>
         <label className="inline-label">
@@ -197,7 +211,10 @@ export function SettingsView({ workspace, onOpenPage, onThemeChange, onRestored,
 
       <section aria-labelledby="privacy-heading" className="panel">
         <h2 id="privacy-heading">Privacy</h2>
-        <p>Threadwell collects no telemetry. In this build, no data leaves this computer.</p>
+        <p>
+          Threadwell collects no telemetry by default. Optional performance traces are written only to this computer. No
+          data leaves it unless you use a remote model server that you enable yourself.
+        </p>
       </section>
 
       {busy && (

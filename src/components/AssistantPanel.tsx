@@ -14,6 +14,7 @@ import type {
   ConversationSummary,
   Proposal,
   StoredMessage,
+  WorkspaceListItem,
 } from '../lib/types';
 
 interface Props {
@@ -64,6 +65,9 @@ export function AssistantPanel({
   const [includeSelection, setIncludeSelection] = useState(true);
   const [historyQuery, setHistoryQuery] = useState('');
   const [historyHits, setHistoryHits] = useState<ConversationHit[] | null>(null);
+  // Which workspaces the next question covers. "current" is the open workspace only.
+  const [scope, setScope] = useState('current');
+  const [workspaces, setWorkspaces] = useState<WorkspaceListItem[]>([]);
 
   // Search past conversations as the user types. Stale responses are ignored.
   useEffect(() => {
@@ -107,6 +111,13 @@ export function AssistantPanel({
       .aiGetConversation(id)
       .then(setMessages)
       .catch((err) => setNotice(messageFor(err)));
+  }, []);
+
+  useEffect(() => {
+    api
+      .listWorkspaces()
+      .then(setWorkspaces)
+      .catch(() => setWorkspaces([]));
   }, []);
 
   useEffect(() => {
@@ -183,6 +194,7 @@ export function AssistantPanel({
         message,
         pageId: includePage ? pageId : null,
         selectedText: includeSelection && selectedText ? selectedText : null,
+        scope,
       });
       setConversationId(started.conversationId);
     } catch (err) {
@@ -346,6 +358,22 @@ export function AssistantPanel({
           void send();
         }}
       >
+        {workspaces.length > 1 && (
+          <label className="inline-label small">
+            <span>Answer from</span>
+            <select value={scope} onChange={(e) => setScope(e.target.value)}>
+              <option value="current">This workspace only</option>
+              <option value="all">All workspaces (read-only for the others)</option>
+              {workspaces
+                .filter((w) => w.available && !w.active)
+                .map((w) => (
+                  <option key={w.path} value={w.name}>
+                    {w.name} (read-only)
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
         {selectedText && (
           <label className="checkbox small">
             <input type="checkbox" checked={includeSelection} onChange={(e) => setIncludeSelection(e.target.checked)} />

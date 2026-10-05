@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { AssistantPanel, DiffView } from '../src/components/AssistantPanel';
@@ -26,6 +26,7 @@ describe('AssistantPanel', () => {
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === 'ai_get_status') return status('unreachable');
       if (command === 'ai_list_conversations') return [];
+      if (command === 'workspaces_list') return [];
       return undefined;
     });
     render(
@@ -50,6 +51,7 @@ describe('AssistantPanel', () => {
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === 'ai_get_status') return status('ready');
       if (command === 'ai_list_conversations') return [];
+      if (command === 'workspaces_list') return [];
       return undefined;
     });
     render(
@@ -77,5 +79,42 @@ describe('DiffView', () => {
     expect(container.querySelectorAll('.diff-add').length).toBe(1);
     expect(container.querySelector('b')).toBeNull();
     expect(container.textContent).toContain('<b>x</b>');
+  });
+});
+
+describe('AssistantPanel workspace scope', () => {
+  it('offers other workspaces read-only and sends the chosen scope with the message', async () => {
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === 'ai_get_status') return status('ready');
+      if (command === 'ai_list_conversations') return [];
+      if (command === 'workspaces_list')
+        return [
+          { name: 'Work', path: 'C:/work', active: true, available: true },
+          { name: 'Home', path: 'C:/home', active: false, available: true },
+        ];
+      if (command === 'ai_chat_send') return { runId: 'r1', conversationId: 'c1' };
+      return undefined;
+    });
+    render(
+      <AssistantPanel
+        pageId={null}
+        pageTitle={null}
+        selectedText={null}
+        onOpenPage={() => undefined}
+        onOpenTasks={() => undefined}
+        onOpenSettings={() => undefined}
+        onDataChanged={() => undefined}
+      />,
+    );
+    const picker = await screen.findByRole('combobox', { name: 'Answer from' });
+    fireEvent.change(picker, { target: { value: 'Home' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message the assistant' }), {
+      target: { value: 'What is in Home?' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => {
+      const call = vi.mocked(invoke).mock.calls.find((c) => c[0] === 'ai_chat_send');
+      expect(call?.[1]).toMatchObject({ request: { scope: 'Home', message: 'What is in Home?' } });
+    });
   });
 });

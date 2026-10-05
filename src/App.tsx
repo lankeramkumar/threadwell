@@ -273,6 +273,8 @@ export function App() {
               onPagesChanged={() => void refreshLists().catch(reportError)}
               onThemeChange={applyTheme}
               onRestored={(info) => void enterWorkspace(info)}
+              onSwitched={(info) => void enterWorkspace(info)}
+              onNewWorkspace={() => setBoot('onboarding')}
               onError={reportError}
             />
           )}
@@ -289,6 +291,7 @@ export function App() {
 
       {assistantOpen && (
         <AssistantPanel
+          key={workspace?.id ?? 'none'}
           pageId={view.kind === 'page' ? view.id : null}
           pageTitle={view.kind === 'page' && page ? page.title : null}
           selectedText={selectedText}

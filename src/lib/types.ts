@@ -106,6 +106,14 @@ export interface BackupInfo {
 }
 
 /** Error shape produced by the backend's `AppError` serializer. */
+/** One entry in the workspace list. `available` is false when its folder or database is missing. */
+export interface WorkspaceListItem {
+  name: string;
+  path: string;
+  active: boolean;
+  available: boolean;
+}
+
 export interface AppErrorPayload {
   code: 'validation' | 'not_found' | 'conflict' | 'no_workspace' | 'database' | 'io' | 'data';
   message: string;

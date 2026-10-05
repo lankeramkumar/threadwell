@@ -32,6 +32,7 @@ import type {
   Task,
   TaskPatch,
   WorkspaceInfo,
+  WorkspaceListItem,
 } from './types';
 
 export const api = {
@@ -39,6 +40,10 @@ export const api = {
   createWorkspace: (path: string, name: string, withSample: boolean) =>
     invoke<WorkspaceInfo>('create_workspace', { path, name, withSample }),
   openWorkspace: (path: string) => invoke<WorkspaceInfo>('open_workspace', { path }),
+  listWorkspaces: () => invoke<WorkspaceListItem[]>('workspaces_list'),
+  switchWorkspace: (path: string) => invoke<WorkspaceInfo>('workspace_switch', { path }),
+  renameWorkspace: (name: string) => invoke<WorkspaceInfo>('workspace_rename', { name }),
+  forgetWorkspace: (path: string) => invoke<void>('workspace_forget', { path }),
 
   listPages: () => invoke<PageSummary[]>('list_pages'),
   listTrash: () => invoke<PageSummary[]>('list_trash'),
@@ -81,6 +86,8 @@ export const api = {
     message: string;
     pageId: string | null;
     selectedText: string | null;
+    /** 'current' (default), 'all', or a workspace name or path. */
+    scope?: string | null;
   }) => invoke<RunStarted>('ai_chat_send', { request }),
   aiPageAction: (request: { runId: string; pageId: string; action: string; language?: string; selectedText: string }) =>
     invoke<RunStarted>('ai_page_action', { request }),

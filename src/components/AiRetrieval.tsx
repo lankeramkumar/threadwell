@@ -23,7 +23,7 @@ export function AiRetrieval({ onError }: { onError: (e: unknown) => void }) {
       setArchitecture(value);
       setNotice(
         value === 'multi'
-          ? 'Multi-agent mode is experimental and makes more model calls, so answers take longer.'
+          ? 'Several agents make more model calls, so answers take longer. Changes are still only proposed, never saved.'
           : 'Saved.',
       );
     } catch (err) {
@@ -108,7 +108,7 @@ export function AiRetrieval({ onError }: { onError: (e: unknown) => void }) {
         <span>Agent design</span>
         <select value={architecture} onChange={(e) => void changeArchitecture(e.target.value as 'single' | 'multi')}>
           <option value="single">One agent (default)</option>
-          <option value="multi">Several agents (experimental)</option>
+          <option value="multi">Several agents</option>
         </select>
       </label>
       <p className="muted small">
