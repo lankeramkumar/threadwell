@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run test:rust"
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run secrets && npm run test && npm run test:rust",
+    "secrets": "node scripts/check-secrets.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.1",

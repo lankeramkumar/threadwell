@@ -4,3 +4,5 @@ src-tauri/target
 src-tauri/gen
 package-lock.json
 intent.md
+eval/thresholds.json
+eval/reports
