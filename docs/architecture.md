@@ -22,11 +22,11 @@ React UI (src/)  ──typed invoke──►  Tauri commands (src-tauri/src/comm
 
 A workspace is a folder:
 
-| Path                        | Purpose                                                            |
-| --------------------------- | ------------------------------------------------------------------ |
-| `threadwell.db`             | Authoritative data (SQLite, WAL mode, `synchronous=NORMAL`)        |
-| `threadwell.db-wal`, `-shm` | SQLite journal files; present while the app is open                |
-| `attachments/`              | Reserved for milestone 1 imports; created and backed up, no UI yet |
+| Path                        | Purpose                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `threadwell.db`             | Authoritative data (SQLite, WAL mode, `synchronous=NORMAL`)                       |
+| `threadwell.db-wal`, `-shm` | SQLite journal files; present while the app is open                               |
+| `attachments/`              | Copies of attached files; readable types are also read into a note under the page |
 
 The last opened workspace path is stored in the app config directory (`last-workspace.txt`).
 

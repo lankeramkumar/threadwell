@@ -13,6 +13,24 @@ use quick_xml::Reader;
 /// Limit on decompressed XML, so a crafted archive cannot exhaust memory.
 const MAX_XML_BYTES: u64 = 20 * 1024 * 1024;
 
+/// File types that can be read into a page. Notes are read as text; Word, PDF and CSV are converted.
+pub const READABLE_EXTENSIONS: &[&str] = &["md", "markdown", "txt", "docx", "pdf", "csv"];
+
+/// Converts the bytes of a readable file to Markdown. `ext` is the lower-case extension.
+pub fn file_to_markdown(ext: &str, bytes: &[u8]) -> Result<String, String> {
+    match ext {
+        "docx" => docx_to_markdown(bytes),
+        "pdf" => pdf_to_text(bytes),
+        "csv" => {
+            let text = std::str::from_utf8(bytes).map_err(|_| "The CSV file is not UTF-8 text".to_string())?;
+            csv_to_markdown(text)
+        }
+        _ => std::str::from_utf8(bytes)
+            .map(str::to_string)
+            .map_err(|_| "The file is not UTF-8 text".to_string()),
+    }
+}
+
 pub fn docx_to_markdown(bytes: &[u8]) -> Result<String, String> {
     let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|_| "This is not a valid Word document".to_string())?;
     let mut xml = String::new();
@@ -316,5 +334,14 @@ mod csv_tests {
     fn unclosed_quotes_and_empty_files_are_refused() {
         assert!(csv_to_markdown("a,\"open\n").is_err());
         assert!(csv_to_markdown("\n\n").is_err());
+    }
+
+    #[test]
+    fn real_word_and_pdf_samples_extract_their_text() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("demo-project");
+        let docx = std::fs::read(root.join("documents-docx").join("supplier-contracts.docx")).unwrap();
+        assert!(docx_to_markdown(&docx).unwrap().contains("flour"), "Word sample text was not extracted");
+        let pdf = std::fs::read(root.join("documents-pdf").join("supplier-contracts.pdf")).unwrap();
+        assert!(pdf_to_text(&pdf).unwrap().contains("flour"), "PDF sample text was not extracted");
     }
 }

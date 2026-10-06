@@ -402,6 +402,8 @@ export interface Attachment {
   size: number;
   sha256: string;
   createdAt: string;
+  /** Set when the file is attached: what happened to its text. */
+  readStatus?: string | null;
 }
 
 export interface ConversationHit {

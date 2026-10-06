@@ -617,7 +617,7 @@ pub async fn sources_drop(state: State<'_, AppState>, paths: Vec<String>) -> App
             continue;
         }
         let ext = extension(&candidate);
-        if candidate.is_file() && matches!(ext.as_str(), "md" | "markdown" | "txt") {
+        if candidate.is_file() && crate::documents::READABLE_EXTENSIONS.contains(&ext.as_str()) {
             let imported = with_active(&state.active, |a| transfer::import_markdown(&a.conn, &a.info.id, &candidate, None));
             match imported {
                 Ok(page) => report.imported.push(page.title),
@@ -625,7 +625,7 @@ pub async fn sources_drop(state: State<'_, AppState>, paths: Vec<String>) -> App
             }
         } else {
             report.skipped.push(format!(
-                "{name}: drop the folder that contains it to link it, or a Markdown or text file to import it as a note."
+                "{name}: drop the folder that contains it to link it, or a Word, PDF, CSV, Markdown or text file to import it as a note."
             ));
         }
     }
@@ -797,6 +797,31 @@ mod tests {
             assert_eq!(section.as_deref(), Some("Lines 41–80"), "line 70 is in the second section");
             let note_section = knowledge::source_section(&a.conn, &page_id, "something unrelated entirely");
             assert_eq!(note_section.unwrap(), None);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn a_linked_folder_of_word_and_pdf_files_is_searchable() {
+        let dir = tempfile::tempdir().unwrap();
+        let demo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("demo-project");
+        let active = shared(&dir.path().join("ws"));
+        let source = add_source(&active, &demo);
+        sync_source(&active, &source).unwrap();
+        with_active(&active, |a| {
+            let hits = crate::knowledge::retrieve(
+                &a.conn,
+                &a.info.id,
+                "flour contract",
+                None,
+                "",
+                crate::knowledge::Mode::Lexical,
+                crate::knowledge::Weights { lexical: 1.0, vector: 0.0 },
+                5,
+            )
+            .unwrap();
+            assert!(hits.iter().any(|h| h.title.contains("supplier-contracts")), "found: {hits:?}");
             Ok(())
         })
         .unwrap();

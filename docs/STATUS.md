@@ -3,6 +3,15 @@
 This is the detailed checklist for every milestone in [intent.md](../intent.md): what is built, what is verified,
 and what is not. The overview is in the [README](../README.md).
 
+## Update for document reading (unreleased, after 0.1.5)
+
+| Item                                    | Status                                                                                                                                                                                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Word and PDF text extraction            | Works. Checked on all 10 Word and 10 PDF sample files. Folder import and linked folders retrieve their text.                                                                                                                                        |
+| Attachments are searchable              | Fixed. Before, attachments were copied but never read, so the assistant could not see them. Now a Word, PDF, CSV, Markdown or text attachment becomes a note under its page. A file that cannot be read is still attached, and the reason is shown. |
+| Single-file import of Word, PDF and CSV | Fixed. It accepted only Markdown and text. Drop and the Settings import now accept the same types as folder import.                                                                                                                                 |
+| Answer quality on documents             | The 3B model sometimes misstated what an attached file said. The 7B model answered the same question correctly. The docs now recommend 7B for document questions. A support check that compares answers with their sources is not built.            |
+
 ## Update for line citations and quick actions (unreleased, after 0.1.4)
 
 | Item                             | Status                                                                                                                                                                                                    |
@@ -100,7 +109,7 @@ as done only when the automated suite or a recorded measurement covers them.
 - [x] Works offline; no network code in the app
 - [x] Keyboard focus styles, labelled controls, reduced-motion support
 - [ ] Full keyboard and screen-reader audit (done by inspection only, not tested with assistive technology)
-- [ ] Attachments UI (the `attachments/` folder exists and is backed up, but there is no import flow yet)
+- [x] Attachments UI. Attachments are copied into `attachments/` and backed up. Word, PDF, CSV, Markdown and text attachments are also read into a note under the page, so the assistant can answer from them.
 - [ ] Drag-and-drop on the board (buttons move cards between columns instead)
 - [ ] Permanent deletion from trash (intentionally absent in this build)
 - [ ] Measured performance (see "Performance" below)

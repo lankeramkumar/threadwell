@@ -32,7 +32,8 @@ export function Attachments({ pageId, onError }: { pageId: string; onError: (e: 
     try {
       const file = await open({ multiple: false, title: 'Choose a file to attach' });
       if (typeof file !== 'string') return;
-      await api.attachmentAdd(pageId, file);
+      const added = await api.attachmentAdd(pageId, file);
+      setNotice(added.readStatus ?? null);
       load();
     } catch (err) {
       setNotice(messageFor(err));

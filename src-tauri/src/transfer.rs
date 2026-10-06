@@ -15,6 +15,7 @@ use rusqlite::backup::Backup;
 use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 
+use crate::documents;
 use crate::db::{self, ATTACHMENTS_DIR, DB_FILE};
 use crate::error::{validation, AppError, AppResult};
 use crate::pages::{self, Page};
@@ -211,8 +212,8 @@ pub fn import_markdown(conn: &Connection, ws: &str, src: &Path, parent: Option<&
         return validation("Choose a file to import");
     }
     let ext = src.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
-    if !matches!(ext.as_str(), "md" | "markdown" | "txt") {
-        return validation("Only .md, .markdown and .txt files can be imported");
+    if !documents::READABLE_EXTENSIONS.contains(&ext.as_str()) {
+        return validation("Only Markdown, text, Word, PDF and CSV files can be imported");
     }
     let meta = fs::metadata(src)?;
     if !meta.is_file() {
@@ -221,7 +222,8 @@ pub fn import_markdown(conn: &Connection, ws: &str, src: &Path, parent: Option<&
     if meta.len() > MAX_IMPORT_BYTES {
         return validation("This file is larger than the 5 MB import limit");
     }
-    let text = fs::read_to_string(src).map_err(|_| AppError::Validation("The file must be UTF-8 text".into()))?;
+    let bytes = fs::read(src)?;
+    let text = documents::file_to_markdown(&ext, &bytes).map_err(AppError::Validation)?;
     let mut doc = markdown::from_markdown(&text);
     let stem = src.file_stem().and_then(|s| s.to_str()).unwrap_or("Imported page");
     let title = markdown::take_title(&mut doc)

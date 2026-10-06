@@ -34,7 +34,7 @@ AI assistant runs on a model you install on your own machine.
 
 | Area                        | What it does                                                                                                                                                                                                                                                                                                                                                            |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore. Attach files (up to 25 MB) that are stored inside the workspace.                                                                                                                                                |
+| **Pages**                   | Nested pages with a rich editor: headings, lists, checklists, quotes, code, tables, links between pages. Autosave. Favourites, move, trash and restore. Attach files (up to 25 MB) that are stored inside the workspace. Attached Word, PDF, CSV, Markdown and text files are also read into a note under the page, so the assistant can answer from them.              |
 | **Tasks**                   | Tasks with status, priority, optional due date and project. Table view and board view with drag and drop. Export to CSV.                                                                                                                                                                                                                                                |
 | **Search**                  | One search box across pages and tasks, with highlighted matches. Ctrl+K command palette for jumping to any page or view.                                                                                                                                                                                                                                                |
 | **Import and export**       | Import single files or a whole folder of notes (Markdown, text, Word, text-based PDF and CSV). Watch a folder and sync its new notes. Export every page to Markdown files.                                                                                                                                                                                              |
@@ -106,8 +106,8 @@ words highlighted. Press **Ctrl+K** for the command palette, which lists pages a
 
 ### Import and export
 
-- **Import:** _Settings_ → _Import and export_ → **Import a Markdown file**. A `.md`, `.markdown` or `.txt` file of up to
-  5 MB becomes a new page. A first line starting with a single `#` becomes the title. Your original file is not changed.
+- **Import:** _Settings_ → _Import and export_ → **Import a file**. A Markdown, text, Word (`.docx`), text-based PDF or CSV file of up to
+  5 MB becomes a new page, so the assistant can answer from it. A first line starting with a single `#` becomes the title. Your original file is not changed.
 - **Import a folder of notes:** _Settings_ → **Choose folder…**. Threadwell lists the Markdown, text, Word (`.docx`) and
   text-based PDF files in the folder. Tick the ones you want and click **Import**. Your files are never changed, and
   unchanged files are skipped on later imports. Scanned PDFs and OneNote (`.one`) files are not supported.
@@ -183,6 +183,9 @@ computer. The supported server is [Ollama](https://ollama.com).
    ollama pull nomic-embed-text
    ```
    The first model is about 1.9 GB and is used for answers. The second, about 270 MB, is used for semantic search.
+   For questions about documents, the larger model is more reliable. Run `ollama pull qwen2.5:7b` (about 4.7 GB) and choose
+   `qwen2.5:7b` in the same settings. In our test on an attached Word file, the 3B model misstated what the file said, while
+   the 7B model answered correctly. The 7B model is slower on a laptop.
 3. In Threadwell, open **Settings** → **AI assistance**. Enter `qwen2.5:3b` as the model name and click **Save and check**.
    The status should say _Connected_.
 4. Open **Settings** → **Finding information** and click **Build or update index**.

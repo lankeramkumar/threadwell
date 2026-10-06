@@ -275,7 +275,7 @@ export function App() {
     <div className={assistantOpen ? 'app-shell with-assistant' : 'app-shell'}>
       {dragging && (
         <div className="drop-overlay" aria-hidden="true">
-          Drop a folder to link it, or a Markdown or text file to import it
+          Drop a folder to link it, or a Word, PDF, CSV, Markdown or text file to import it
         </div>
       )}
       {dropNotice && (

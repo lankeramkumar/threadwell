@@ -87,8 +87,8 @@ export function SettingsView({
     run('import', async () => {
       const file = await open({
         multiple: false,
-        title: 'Choose a Markdown file to import',
-        filters: [{ name: 'Markdown or text', extensions: ['md', 'markdown', 'txt'] }],
+        title: 'Choose a file to import',
+        filters: [{ name: 'Documents and notes', extensions: ['md', 'markdown', 'txt', 'docx', 'pdf', 'csv'] }],
       });
       if (typeof file !== 'string') return;
       const page = await api.importMarkdown(file, null);
@@ -172,7 +172,7 @@ export function SettingsView({
             Export tasks to CSV
           </button>
           <button type="button" onClick={importMd} disabled={busy !== null}>
-            Import a Markdown file
+            Import a file
           </button>
         </div>
       </section>

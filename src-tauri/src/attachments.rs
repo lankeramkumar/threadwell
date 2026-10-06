@@ -14,7 +14,7 @@ use tauri::State;
 use crate::commands::{with_active, AppState};
 use crate::db::ATTACHMENTS_DIR;
 use crate::error::{validation, AppError, AppResult};
-use crate::{pages, transfer, util};
+use crate::{documents, markdown, pages, transfer, util};
 
 pub const MAX_ATTACHMENT_BYTES: u64 = 25 * 1024 * 1024;
 const BLOCKED_EXTENSIONS: &[&str] = &[
@@ -31,6 +31,8 @@ pub struct Attachment {
     pub size: i64,
     pub sha256: String,
     pub created_at: String,
+    /// Set when the file is attached: what happened to its text. Not set when listing.
+    pub read_status: Option<String>,
 }
 
 fn stored_extension(name: &str) -> String {
@@ -74,7 +76,36 @@ pub fn add(conn: &Connection, ws: &str, root: &Path, page_id: &str, src_text: &s
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![id, ws, page_id, display, stored_name, bytes.len() as i64, sha256, now],
     )?;
-    Ok(Attachment { id, page_id: page_id.into(), file_name: display, size: bytes.len() as i64, sha256, created_at: now })
+    let read_status = read_for_assistant(conn, ws, page_id, &ext, &display, &bytes);
+    Ok(Attachment {
+        id,
+        page_id: page_id.into(),
+        file_name: display,
+        size: bytes.len() as i64,
+        sha256,
+        created_at: now,
+        read_status: Some(read_status),
+    })
+}
+
+/// Reads a readable attachment into a child note under its page, so search and the assistant can
+/// use it. A file that cannot be read is still attached, and the reason is returned.
+fn read_for_assistant(conn: &Connection, ws: &str, page_id: &str, ext: &str, display: &str, bytes: &[u8]) -> String {
+    let kind = ext.trim_start_matches('.').to_ascii_lowercase();
+    if !documents::READABLE_EXTENSIONS.contains(&kind.as_str()) {
+        return "Attached. This file type is not read for the assistant. Word, PDF, CSV, Markdown and text files are.".into();
+    }
+    let title: String = display.chars().take(200).collect();
+    let outcome = documents::file_to_markdown(&kind, bytes).and_then(|text| {
+        let doc = markdown::from_markdown(&text);
+        let note = pages::create(conn, ws, &title, Some(page_id)).map_err(|e| e.to_string())?;
+        pages::update(conn, ws, &note.id, &title, &doc, note.revision).map_err(|e| e.to_string())?;
+        Ok(())
+    });
+    match outcome {
+        Ok(()) => format!("Attached and read into a note titled \"{title}\" under this page, so the assistant can use it."),
+        Err(reason) => format!("Attached, but not read for the assistant: {reason}"),
+    }
 }
 
 pub fn list(conn: &Connection, ws: &str, page_id: &str) -> AppResult<Vec<Attachment>> {
@@ -91,6 +122,7 @@ pub fn list(conn: &Connection, ws: &str, page_id: &str) -> AppResult<Vec<Attachm
             size: row.get(3)?,
             sha256: row.get(4)?,
             created_at: row.get(5)?,
+            read_status: None,
         })
     })?;
     Ok(rows.collect::<Result<_, _>>()?)
@@ -224,5 +256,45 @@ mod tests {
         let attached = add(&conn, &ws, &root, &page.id, &src.display().to_string()).unwrap();
         assert!(path(&conn, &other, &root, &attached.id).is_err());
         assert!(remove(&conn, &other, &root, &attached.id).is_err());
+    }
+}
+
+#[cfg(test)]
+mod read_tests {
+    use super::*;
+    use crate::{search, workspace};
+
+    #[test]
+    fn an_attached_word_file_is_read_into_a_searchable_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let active = workspace::create(&dir.path().join("ws"), "Attach test", false).unwrap();
+        let page = pages::create(&active.conn, &active.info.id, "Supplier review", None).unwrap();
+        let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("demo-project").join("documents-docx").join("supplier-contracts.docx");
+        let added = add(&active.conn, &active.info.id, &active.root, &page.id, &sample.display().to_string()).unwrap();
+        assert!(added.read_status.unwrap().starts_with("Attached and read into a note"));
+        let hits = search::search(&active.conn, &active.info.id, "flour").unwrap();
+        assert!(hits.iter().any(|h| h.title == "supplier-contracts.docx"), "the attached file is searchable: {hits:?}");
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_is_still_attached_and_says_why() {
+        let dir = tempfile::tempdir().unwrap();
+        let active = workspace::create(&dir.path().join("ws"), "Attach test", false).unwrap();
+        let page = pages::create(&active.conn, &active.info.id, "Scans", None).unwrap();
+        let broken = dir.path().join("scan.pdf");
+        std::fs::write(&broken, b"%PDF-1.4 damaged").unwrap();
+        let added = add(&active.conn, &active.info.id, &active.root, &page.id, &broken.display().to_string()).unwrap();
+        assert!(added.read_status.unwrap().starts_with("Attached, but not read"));
+        assert_eq!(list(&active.conn, &active.info.id, &page.id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_word_file_can_be_imported_as_a_page() {
+        let dir = tempfile::tempdir().unwrap();
+        let active = workspace::create(&dir.path().join("ws"), "Import test", false).unwrap();
+        let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("demo-project").join("documents-docx").join("supplier-contracts.docx");
+        let page = crate::transfer::import_markdown(&active.conn, &active.info.id, &sample, None).unwrap();
+        assert_eq!(page.title, "Supplier contracts: flour and butter");
+        assert!(page.body.to_string().contains("Two suppliers cover most of our baking volume"));
     }
 }

@@ -148,7 +148,7 @@ doc.add_heading("Autosave", level=2)
 para("Threadwell saves about 0.8 seconds after you stop typing. The status line under the toolbar shows Unsaved changes, "
      "Saving… or Saved. If it says Couldn't save, Threadwell retries every few seconds. Keep the app open until it says Saved.")
 doc.add_heading("Attach a file to a page", level=2)
-para("Attachments are copies stored inside your workspace. Your original file is not moved or changed.")
+para("Attachments are copies stored inside your workspace. Your original file is not moved or changed. Word, PDF, CSV, Markdown and text files are also read into a note under the page, so the assistant can answer questions from them.")
 steps([
     "Open the page and scroll to the Attachments section below the editor.",
     "Click Attach a file… and choose the file. Files up to 25 MB are accepted.",
@@ -185,7 +185,7 @@ para("Import copies one Markdown or plain-text file into your workspace. The ori
      "A first line starting with a single # becomes the page title.")
 steps([
     "Open Settings in the sidebar, then find Import and export.",
-    "Click Import a Markdown file and choose a .md, .markdown or .txt file. The file must be UTF-8 text under 5 MB.",
+    "Click Import a file and choose a Markdown, text, Word, PDF or CSV file. The file must be under 5 MB. Scanned PDFs have no text and cannot be read.",
     "The new page opens. Try it with the sample file samples\\import-project-plan.md from the Threadwell folder.",
 ])
 doc.add_heading("Import a folder of notes", level=2)
